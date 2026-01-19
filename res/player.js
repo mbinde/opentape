@@ -54,10 +54,13 @@
 
     // Toggle play/pause for a track
     function togglePlayback(id) {
+        debug('togglePlayback called with id:', id);
         const trackIndex = parseInt(id.replace(/song/, ''), 10);
+        debug('trackIndex:', trackIndex, 'currentTrack:', currentTrack);
 
         if (trackIndex === currentTrack && currentTrack >= 0) {
             // Same track - toggle play/pause
+            debug('Same track - toggling play/pause');
             if (playerStatus === 'PAUSED') {
                 resumeTrack();
             } else {
@@ -65,6 +68,7 @@
             }
         } else {
             // Different track - stop current and play new
+            debug('Different track - playing track', trackIndex);
             cleanTrackDisplay(currentTrack);
             currentTrack = trackIndex;
             playTrack();
@@ -73,7 +77,12 @@
 
     // Play the current track
     function playTrack() {
+        debug('playTrack called, currentTrack:', currentTrack);
+        debug('openPlaylist:', openPlaylist);
+        debug('openPlaylist[currentTrack]:', openPlaylist[currentTrack]);
+
         if (typeof openPlaylist === 'undefined' || !openPlaylist[currentTrack]) {
+            debug('No track to play - returning');
             return;
         }
 
@@ -92,6 +101,7 @@
 
         // Create new audio player
         const filename = decodeURIComponent(atob(openPlaylist[currentTrack]));
+        debug('Playing filename:', filename);
         audioPlayer = new Audio('songs/' + filename);
         audioPlayer.volume = 0.8;
 
