@@ -35,7 +35,7 @@ label{display:block;float:left;font-weight:700;width:80px;}
 .section p{color:#333;font-size:12px;margin:5px 0;}
 .sortie{border:5px solid #ddd;cursor:move;width:80%;}
 .sortie input.save{margin-left:0;}
-.sortie li{border-bottom:1px solid #eee;border-top:1px solid #eee;font-size:20px;position:relative;background:#fff;}
+.sortie li{border-bottom:1px solid #eee;border-top:1px solid #eee;font-size:20px;position:relative;background:#fff;transition:background 0.1s;}
 .sortie li div.abc{color:#2695e3;cursor:pointer;display:inline;font-size:11px;position:absolute;right:50px;top:9px;}
 .sortie li div.ex{cursor:pointer;display:inline;font-size:11px;position:absolute;right:10px;top:9px;color:#e02;}
 .sortie li div.inputs{cursor:default;display:none;}

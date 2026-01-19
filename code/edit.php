@@ -306,6 +306,13 @@ $csrf_token = get_csrf_token();
         // Song list functionality
         const sortableList = document.getElementById('sortable_list');
         if (sortableList) {
+            // Force reflow to fix hover states in some browsers
+            sortableList.querySelectorAll('li').forEach(function(li) {
+                li.style.display = 'none';
+                li.offsetHeight; // trigger reflow
+                li.style.display = '';
+            });
+
             // Get initial order
             originalOrder = Array.from(sortableList.querySelectorAll('li')).map(li => li.id);
 
