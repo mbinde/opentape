@@ -56,7 +56,17 @@ if (!is_dir(SONGS_PATH)) {
                         <li style="margin:5px 0;"><?php echo $error; ?></li>
                     <?php endforeach; ?>
                 </ul>
-                <p style="margin-top:15px;"><strong>How to fix:</strong> Use your FTP client or hosting control panel to create the directories and set permissions. Contact your web host if you need help.</p>
+                <p style="margin-top:15px;"><strong>How to fix:</strong></p>
+                <ol style="margin:10px 0; padding-left:20px; line-height:1.6;">
+                    <li>Open your hosting control panel (cPanel, Plesk, etc.)</li>
+                    <li>Go to <strong>File Manager</strong></li>
+                    <li>Navigate to your Opentape folder</li>
+                    <li>Right-click on the <code>userdata</code> folder (or create it if missing)</li>
+                    <li>Select <strong>Permissions</strong> or <strong>Change Permissions</strong></li>
+                    <li>Set permissions to <strong>755</strong> or <strong>775</strong></li>
+                    <li>Do the same for <code>userdata/settings</code> and <code>userdata/songs</code></li>
+                </ol>
+                <p>Contact your web host if you need help with permissions.</p>
                 <p><a href="" onclick="location.reload(); return false;">Refresh this page</a> after making changes.</p>
             </div>
 <?php else: ?>

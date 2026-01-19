@@ -31,6 +31,17 @@ if (preg_match('/code\/?$/', $cwd) || preg_match('|' . SETTINGS_PATH . '?$|', $c
     chdir('..');
 }
 
+// Auto-create userdata directories if they don't exist
+if (!is_dir('userdata')) {
+    @mkdir('userdata', 0755, true);
+}
+if (!is_dir(SETTINGS_PATH)) {
+    @mkdir(SETTINGS_PATH, 0755, true);
+}
+if (!is_dir(SONGS_PATH)) {
+    @mkdir(SONGS_PATH, 0755, true);
+}
+
 // ============================================================================
 // SESSION MANAGEMENT (using PHP native sessions)
 // ============================================================================
