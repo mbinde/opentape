@@ -24,7 +24,16 @@ if (isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_NO_FILE) {
         $upload_error = 'Invalid request';
     } elseif ($_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         $upload_success = 0;
-        $upload_error = 'Upload error';
+        $error_code = $_FILES['file']['error'];
+        $error_messages = [
+            UPLOAD_ERR_INI_SIZE => 'File exceeds server limit (upload_max_filesize)',
+            UPLOAD_ERR_FORM_SIZE => 'File exceeds form limit',
+            UPLOAD_ERR_PARTIAL => 'File only partially uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'No temp directory',
+            UPLOAD_ERR_CANT_WRITE => 'Cannot write to disk',
+            UPLOAD_ERR_EXTENSION => 'Upload blocked by extension',
+        ];
+        $upload_error = $error_messages[$error_code] ?? 'Upload error (code ' . $error_code . ')';
     } else {
         $upload_result = validate_and_save_upload($_FILES['file']);
         $upload_success = $upload_result['success'] ? 1 : ($upload_result['error'] === 'Not an MP3' ? -1 : 0);
@@ -76,9 +85,9 @@ function validate_and_save_upload(array $file): array {
         return ['success' => false, 'error' => 'Not a valid MP3'];
     }
 
-    // Sanitize filename - keep only safe characters
+    // Sanitize filename - keep safe characters including & and common punctuation
     $basename = pathinfo($original_name, PATHINFO_FILENAME);
-    $basename = preg_replace('/[^a-zA-Z0-9_\-\. ]/', '', $basename);
+    $basename = preg_replace('/[^a-zA-Z0-9_\-\. &\'\(\)]/', '', $basename);
     $basename = trim($basename);
     if (empty($basename)) {
         $basename = 'upload_' . time();
@@ -163,13 +172,13 @@ $csrf_token = get_csrf_token();
             <div class="section">
                 <h2>Rearrange Songs</h2>
                 <p><strong>Drag &amp; drop</strong> to change the order of your mixtape, it will save automatically.</p>
-                <p>
-                    <label>
+                <p style="margin-bottom:15px;">
+                    <label style="display:inline;float:none;width:auto;font-weight:normal;">
                         <input type="checkbox" id="use_filename" <?php if (!empty($prefs_struct['use_filename']) && $prefs_struct['use_filename'] == 1) echo 'checked'; ?>>
                         Use filenames instead of ID3 tags
                     </label>
                 </p>
-                <ul class="sortie" id="sortable_list">
+                <ul class="sortie" id="sortable_list" style="clear:both;">
 <?php foreach ($songlist_struct as $pos => $row):
     if (!is_file(SONGS_PATH . $row['filename'])) {
         unset($songlist_struct[$pos]);
@@ -191,7 +200,7 @@ $csrf_token = get_csrf_token();
 ?>
                     <li id="<?php echo htmlspecialchars($pos, ENT_QUOTES, 'UTF-8'); ?>" draggable="true">
                         <div class="name">
-                            <span class="original_artist"><?php echo $display_artist; ?></span> - <span class="original_title"><?php echo $display_title; ?></span>
+                            <span class="original_artist"><?php echo $display_artist; ?></span><?php if ($display_artist): ?> - <?php endif; ?><span class="original_title"><?php echo $display_title; ?></span>
                             <span class="original_filename">(<?php echo $filename_display; ?>)</span>
                         </div>
                         <div class="inputs">
@@ -432,11 +441,13 @@ $csrf_token = get_csrf_token();
         }
 
         function openRename(li) {
+            li.setAttribute('draggable', 'false');
             li.querySelector('.name').style.display = 'none';
             li.querySelector('.inputs').style.display = 'block';
         }
 
         function closeRename(li) {
+            li.setAttribute('draggable', 'true');
             li.querySelector('.inputs').style.display = 'none';
             li.querySelector('.name').style.display = 'block';
         }

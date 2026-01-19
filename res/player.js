@@ -88,6 +88,11 @@
 
         // Stop and clean up previous player
         if (audioPlayer) {
+            audioPlayer.removeEventListener('play', onPlay);
+            audioPlayer.removeEventListener('pause', onPause);
+            audioPlayer.removeEventListener('ended', onEnded);
+            audioPlayer.removeEventListener('timeupdate', onTimeUpdate);
+            audioPlayer.removeEventListener('error', onError);
             audioPlayer.pause();
             audioPlayer.src = '';
             audioPlayer = null;
@@ -95,6 +100,11 @@
 
         // Clear any preloaded track (it's for a different song)
         if (nextAudioPlayer) {
+            nextAudioPlayer.removeEventListener('play', onPlay);
+            nextAudioPlayer.removeEventListener('pause', onPause);
+            nextAudioPlayer.removeEventListener('ended', onEnded);
+            nextAudioPlayer.removeEventListener('timeupdate', onTimeUpdate);
+            nextAudioPlayer.removeEventListener('error', onError);
             nextAudioPlayer.src = '';
             nextAudioPlayer = null;
         }
@@ -292,8 +302,9 @@
     }
 
     function onError(e) {
-        debug('Audio error:', e);
-        nextTrack();
+        debug('Audio error for track', currentTrack, ':', e);
+        debug('Audio element error code:', audioPlayer?.error?.code, 'message:', audioPlayer?.error?.message);
+        // Don't auto-advance on error - let user choose what to do
     }
 
     function onTimeUpdate() {
