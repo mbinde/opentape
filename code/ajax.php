@@ -63,6 +63,10 @@ switch ($command) {
         handle_check_updates();
         break;
 
+    case 'rescan_songs':
+        handle_rescan_songs();
+        break;
+
     default:
         echo json_encode(['status' => false, 'command' => $command, 'error' => 'Unknown command']);
 }
@@ -287,4 +291,15 @@ function handle_check_updates(): void {
         'command' => 'check_updates',
         'update_info' => $update_info
     ]);
+}
+
+/**
+ * Handle rescan songs request
+ */
+function handle_rescan_songs(): void {
+    // Clear existing songlist to force full rescan
+    write_songlist_struct([]);
+
+    // Rescan will happen automatically on next page load via scan_songs()
+    echo json_encode(['status' => true, 'command' => 'rescan_songs']);
 }

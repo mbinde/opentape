@@ -163,6 +163,7 @@ $csrf_token = get_csrf_token();
             <div class="section">
                 <h2>Rearrange Songs</h2>
                 <p><strong>Drag &amp; drop</strong> to change the order of your mixtape, it will save automatically.</p>
+                <p><input type="button" class="small_button" id="rescan_button" value="Rescan Songs"> Re-read song info from files</p>
                 <ul class="sortie" id="sortable_list">
 <?php foreach ($songlist_struct as $pos => $row):
     if (!is_file(SONGS_PATH . $row['filename'])) {
@@ -277,6 +278,25 @@ $csrf_token = get_csrf_token();
             colorResetButton.addEventListener('click', function() {
                 document.getElementById('color_input').value = DEFAULT_COLOR;
                 document.getElementById('color_input').style.background = '#' + DEFAULT_COLOR;
+            });
+        }
+
+        // Rescan songs
+        const rescanButton = document.getElementById('rescan_button');
+        if (rescanButton) {
+            rescanButton.addEventListener('click', function() {
+                if (confirm('This will re-read all song info from files. Any manual edits to artist/title will be lost. Continue?')) {
+                    rescanButton.disabled = true;
+                    rescanButton.value = 'Rescanning...';
+                    ajaxPost('rescan_songs', {})
+                        .then(() => {
+                            location.reload();
+                        })
+                        .catch(() => {
+                            rescanButton.disabled = false;
+                            rescanButton.value = 'Rescan Songs';
+                        });
+                }
             });
         }
 
