@@ -27,7 +27,7 @@ $banner_header_text = !empty($prefs_struct['banner'])
     : "OPENTAPE";
 
 $banner_caption_text = !empty($prefs_struct['caption'])
-    ? htmlspecialchars($prefs_struct['caption'], ENT_QUOTES, 'UTF-8')
+    ? sanitize_caption($prefs_struct['caption'])
     : count($songlist_struct) . " songs, " . get_total_runtime_string();
 
 ?><!DOCTYPE html>

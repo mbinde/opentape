@@ -795,6 +795,22 @@ function escape_for_inputs(string $string): string {
 }
 
 /**
+ * Sanitize caption text, allowing only safe <a href="http(s)://..."> links
+ * All other HTML is escaped. Safe links get rel="noopener noreferrer" added.
+ */
+function sanitize_caption(string $caption): string {
+    // Escape everything first
+    $safe = htmlspecialchars($caption, ENT_QUOTES, 'UTF-8');
+
+    // Then restore safe <a> tags with http/https hrefs only
+    // Matches: &lt;a href=&quot;https://example.com&quot;&gt;text&lt;/a&gt;
+    $pattern = '/&lt;a\s+href=&quot;(https?:\/\/[^&"<>]+)&quot;&gt;(.+?)&lt;\/a&gt;/i';
+    $replacement = '<a href="$1" rel="noopener noreferrer">$2</a>';
+
+    return preg_replace($pattern, $replacement, $safe);
+}
+
+/**
  * Get current version
  */
 function get_version(): string {

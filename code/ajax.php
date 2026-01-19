@@ -231,7 +231,8 @@ function handle_banner_caption_color(): void {
     $prefs_struct = get_opentape_prefs();
 
     $prefs_struct['banner'] = htmlspecialchars($_POST['banner'] ?? '', ENT_QUOTES, 'UTF-8');
-    $prefs_struct['caption'] = htmlspecialchars($_POST['caption'] ?? '', ENT_QUOTES, 'UTF-8');
+    // Store caption raw - it gets sanitized on display
+    $prefs_struct['caption'] = $_POST['caption'] ?? '';
 
     // Sanitize color to only allow hex characters
     $color = preg_replace('/[^a-fA-F0-9]/', '', $_POST['color'] ?? '');
