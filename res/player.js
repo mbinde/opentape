@@ -13,6 +13,7 @@
     let audioPlayer = null;
     let nextAudioPlayer = null;
     let fadeInterval = null;
+    let initialized = false;
 
     // Debug helper
     function debug(...args) {
@@ -24,6 +25,8 @@
     // Initialize event listeners on all tracks
     function eventInit() {
         if (typeof openPlaylist === 'undefined') return;
+        if (initialized) return;
+        initialized = true;
 
         for (let i = 0; i < openPlaylist.length; i++) {
             const trackEntry = document.getElementById('song' + i);
