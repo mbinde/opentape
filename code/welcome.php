@@ -18,12 +18,6 @@ if (is_password_set()) {
 $setup_status = get_setup_status();
 $setup_errors = [];
 
-if (!$setup_status['userdata_dir']) {
-    $setup_errors[] = 'The <code>userdata/</code> directory could not be created.';
-} elseif (!$setup_status['userdata_writable']) {
-    $setup_errors[] = 'The <code>userdata/</code> directory is not writable.';
-}
-
 if (!$setup_status['settings_dir']) {
     $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory could not be created.';
 } elseif (!$setup_status['settings_writable']) {
@@ -70,10 +64,9 @@ if (!$setup_status['songs_dir']) {
                     <li>Open your hosting control panel (cPanel, Plesk, etc.)</li>
                     <li>Go to <strong>File Manager</strong></li>
                     <li>Navigate to your Opentape folder</li>
-                    <li>Right-click on the <code>userdata</code> folder (or create it if missing)</li>
-                    <li>Select <strong>Permissions</strong> or <strong>Change Permissions</strong></li>
+                    <li>Create the <code>settings</code> and <code>songs</code> folders if they don't exist</li>
+                    <li>Right-click on each folder and select <strong>Permissions</strong></li>
                     <li>Set permissions to <strong>755</strong> or <strong>775</strong></li>
-                    <li>Do the same for <code>userdata/settings</code> and <code>userdata/songs</code></li>
                 </ol>
                 <p>Contact your web host if you need help with permissions.</p>
                 <p><a href="" onclick="location.reload(); return false;">Refresh this page</a> after making changes.</p>

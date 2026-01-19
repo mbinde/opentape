@@ -31,20 +31,15 @@ $php_version_ok = version_compare(PHP_VERSION, '8.0.0', '>=');
 
                 <p><strong>What needs to be fixed:</strong></p>
                 <ul style="margin:10px 0; padding-left:20px;">
-<?php if (!$setup_status['userdata_dir']): ?>
-                    <li>Create the <code>userdata/</code> directory</li>
-<?php elseif (!$setup_status['userdata_writable']): ?>
-                    <li>Make <code>userdata/</code> writable (chmod 755 or 775)</li>
-<?php endif; ?>
 <?php if (!$setup_status['settings_dir']): ?>
-                    <li>Create the <code>userdata/settings/</code> directory</li>
+                    <li>Create the <code>settings/</code> directory</li>
 <?php elseif (!$setup_status['settings_writable']): ?>
-                    <li>Make <code>userdata/settings/</code> writable (chmod 755 or 775)</li>
+                    <li>Make <code>settings/</code> writable (chmod 755 or 775)</li>
 <?php endif; ?>
 <?php if (!$setup_status['songs_dir']): ?>
-                    <li>Create the <code>userdata/songs/</code> directory</li>
+                    <li>Create the <code>songs/</code> directory</li>
 <?php elseif (!$setup_status['songs_writable']): ?>
-                    <li>Make <code>userdata/songs/</code> writable (chmod 755 or 775)</li>
+                    <li>Make <code>songs/</code> writable (chmod 755 or 775)</li>
 <?php endif; ?>
                 </ul>
 
@@ -53,11 +48,9 @@ $php_version_ok = version_compare(PHP_VERSION, '8.0.0', '>=');
                     <li>Open your hosting control panel (cPanel, Plesk, etc.)</li>
                     <li>Go to <strong>File Manager</strong></li>
                     <li>Navigate to your Opentape folder</li>
-                    <li>Create the <code>userdata</code> folder if it doesn't exist</li>
-                    <li>Right-click on it and select <strong>Permissions</strong></li>
+                    <li>Create the <code>settings</code> and <code>songs</code> folders if they don't exist</li>
+                    <li>Right-click on each and select <strong>Permissions</strong></li>
                     <li>Set permissions to <strong>755</strong> (or 775 if 755 doesn't work)</li>
-                    <li>Create <code>settings</code> and <code>songs</code> folders inside <code>userdata</code></li>
-                    <li>Set the same permissions on those folders</li>
                 </ol>
 
                 <p><a href="<?php echo $REL_PATH; ?>">Refresh this page</a> after making changes.</p>

@@ -5,8 +5,8 @@
  */
 
 // --- CONFIGURABLE ADVANCED SETTINGS
-define("SETTINGS_PATH", "userdata/settings/");
-define("SONGS_PATH", "userdata/songs/");
+define("SETTINGS_PATH", "settings/");
+define("SONGS_PATH", "songs/");
 define("DEFAULT_COLOR", "EC660F");
 define("VERSION", "1.0.1");
 define("GITHUB_REPO", "mbinde/opentape");
@@ -31,8 +31,8 @@ if (preg_match('/code\/?$/', $cwd) || preg_match('|' . SETTINGS_PATH . '?$|', $c
     chdir('..');
 }
 
-// Auto-create userdata directories and security files
-ensure_userdata_setup();
+// Auto-create directories and security files
+ensure_directory_setup();
 
 // ============================================================================
 // SESSION MANAGEMENT (using PHP native sessions)
@@ -566,22 +566,8 @@ function send_security_headers(): void {
  * Ensure userdata directories and security files exist
  * Returns array of errors, empty if all OK
  */
-function ensure_userdata_setup(): array {
+function ensure_directory_setup(): array {
     $errors = [];
-
-    // Create userdata directory
-    if (!is_dir('userdata')) {
-        if (!@mkdir('userdata', 0755, true)) {
-            $errors[] = 'Could not create userdata/ directory';
-        }
-    }
-
-    // Create and verify userdata/index.php (prevents directory listing)
-    $index_file = 'userdata/index.php';
-    $index_content = "<?php\nhttp_response_code(403);\nexit('Access denied');\n";
-    if (is_dir('userdata') && !file_exists($index_file)) {
-        @file_put_contents($index_file, $index_content);
-    }
 
     // Create settings directory
     if (!is_dir(SETTINGS_PATH)) {
@@ -612,9 +598,6 @@ function ensure_userdata_setup(): array {
  */
 function get_setup_status(): array {
     $status = [
-        'userdata_dir' => is_dir('userdata'),
-        'userdata_writable' => is_dir('userdata') && is_writable('userdata'),
-        'userdata_index' => file_exists('userdata/index.php'),
         'settings_dir' => is_dir(SETTINGS_PATH),
         'settings_writable' => is_dir(SETTINGS_PATH) && is_writable(SETTINGS_PATH),
         'settings_htaccess' => file_exists(SETTINGS_PATH . '.htaccess'),
@@ -622,10 +605,8 @@ function get_setup_status(): array {
         'songs_writable' => is_dir(SONGS_PATH) && is_writable(SONGS_PATH),
     ];
 
-    $status['all_ok'] = $status['userdata_writable']
-        && $status['settings_writable']
+    $status['all_ok'] = $status['settings_writable']
         && $status['songs_writable']
-        && $status['userdata_index']
         && $status['settings_htaccess'];
 
     return $status;

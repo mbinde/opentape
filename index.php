@@ -12,7 +12,7 @@ if (version_compare(PHP_VERSION, '8.0.0', '<')) {
     exit;
 }
 
-// Check if userdata directories are set up and writable
+// Check if directories are set up and writable
 $setup_status = get_setup_status();
 if (!$setup_status['settings_writable'] || !$setup_status['songs_writable']) {
     include("code/warning.php");

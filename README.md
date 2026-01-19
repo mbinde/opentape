@@ -6,32 +6,32 @@ A simple, self-hosted web application for creating and sharing mixtapes. Moderni
 
 - PHP 8.0 or higher (tested on PHP 8.5)
 - Web server (Apache, nginx, etc.)
-- Writable `userdata/` directory
+- Writable `songs/` and `settings/` directories (auto-created on first run)
 
 ## Installation
 
 1. Upload all files and folders to a directory on your web server
-2. Ensure the `userdata/` directory (and its subdirectories) are writable by the web server
-3. Visit your installation URL (e.g., `https://yoursite.com/opentape/`)
+2. Visit your installation URL (e.g., `https://yoursite.com/opentape/`)
+3. The `songs/` and `settings/` directories will be created automatically
 4. Create an admin password when prompted
 5. Start uploading MP3s!
+
+If automatic directory creation fails, create `songs/` and `settings/` manually and set permissions to 755 or 775.
 
 ## Updating
 
 1. Go to **Settings** in your admin panel and click **Check for Updates**
 2. If an update is available, download the ZIP file
-3. Upload all files **except the `userdata/` folder** to your server, overwriting existing files
-4. Your music and settings in `userdata/` will be preserved
+3. Upload all files **except `songs/` and `settings/`** to your server, overwriting existing files
+4. Your music and settings will be preserved
 
-## Migrating from Old Opentape (pre-1.1)
+## Migrating from Old Opentape (pre-1.0)
 
-If you have an existing Opentape installation with `songs/` and `settings/` folders in the root:
+Old Opentape installations should work with minimal changes:
 
-1. Create the new `userdata/songs/` and `userdata/settings/` directories
-2. Move your MP3 files from `songs/` to `userdata/songs/`
-3. Move your `.json` files from `settings/` to `userdata/settings/`
-4. Delete the old `songs/` and `settings/` folders
-5. Upload the new Opentape files
+1. Upload the new code files (index.php, code/, res/)
+2. Keep your existing `songs/` and `settings/` folders
+3. You will need to set a new password (old MD5 passwords are not supported)
 
 ## Features
 
@@ -53,9 +53,8 @@ opentape/
 │   ├── getid3/         # ID3 tag parsing library
 │   └── *.php           # Application logic
 ├── res/                # CSS and JavaScript
-└── userdata/           # User data (preserve during updates!)
-    ├── songs/          # Uploaded MP3 files
-    └── settings/       # Configuration and password
+├── songs/              # Uploaded MP3 files (preserve during updates!)
+└── settings/           # Configuration and password (preserve during updates!)
 ```
 
 ## Security Notes
@@ -71,10 +70,10 @@ opentape/
 
 ### 1.0.1
 
-- Moved user data to `userdata/` folder for safer updates
 - Added update checker in Settings
 - Security hardening (XSS fixes, CSP headers, upload validation)
 - Improved error messages for setup/permissions issues
+- Auto-create `songs/` and `settings/` directories on first run
 - Removed legacy MD5 password support
 - Removed old serialized PHP migration code
 
