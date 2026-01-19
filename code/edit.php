@@ -354,16 +354,6 @@ $csrf_token = get_csrf_token();
 
             // Song item events
             sortableList.querySelectorAll('li').forEach(function(li) {
-                // Hover effects
-                li.addEventListener('mouseenter', function() {
-                    this.classList.add('hover');
-                });
-                li.addEventListener('mouseleave', function() {
-                    if (!isRenaming(this)) {
-                        this.classList.remove('hover');
-                    }
-                });
-
                 // Rename button
                 const renameBtn = li.querySelector('.abc');
                 if (renameBtn) {
@@ -435,7 +425,6 @@ $csrf_token = get_csrf_token();
         }
 
         function openRename(li) {
-            li.classList.add('hover');
             li.querySelector('.name').style.display = 'none';
             li.querySelector('.inputs').style.display = 'block';
         }
@@ -443,7 +432,6 @@ $csrf_token = get_csrf_token();
         function closeRename(li) {
             li.querySelector('.inputs').style.display = 'none';
             li.querySelector('.name').style.display = 'block';
-            li.classList.remove('hover');
         }
 
         function arraysEqual(a, b) {

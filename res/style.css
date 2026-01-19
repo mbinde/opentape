@@ -43,4 +43,4 @@ label{display:block;float:left;font-weight:700;width:80px;}
 .sortie li div.inputs input.field{border:1px solid #aaa;font-size:12px;padding:3px;width:30%;}
 .sortie li div.name,.sortie li div.inputs{padding:10px;}
 .sortie li span.original_filename {color:#888;font-size:12px;}
-.sortie li.hover{background:#eee;}
+.sortie li.hover, .sortie li:hover{background:#eee;}
