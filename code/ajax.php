@@ -84,6 +84,25 @@ function handle_create_password(array $args): void {
         return;
     }
 
+    // Check if settings directory exists and is writable
+    if (!is_dir(SETTINGS_PATH)) {
+        echo json_encode([
+            'status' => false,
+            'command' => 'create_password',
+            'error' => 'Settings directory does not exist. Please create the "' . SETTINGS_PATH . '" directory on your server.'
+        ]);
+        return;
+    }
+
+    if (!is_writable(SETTINGS_PATH)) {
+        echo json_encode([
+            'status' => false,
+            'command' => 'create_password',
+            'error' => 'Settings directory is not writable. Please set write permissions on the "' . SETTINGS_PATH . '" directory. Contact your web host for help with file permissions.'
+        ]);
+        return;
+    }
+
     if (empty($password1) || $password1 !== $password2) {
         echo json_encode([
             'status' => false,
@@ -94,7 +113,11 @@ function handle_create_password(array $args): void {
     }
 
     if (!set_password($password1)) {
-        echo json_encode(['status' => false, 'command' => 'create_password', 'error' => 'Failed to save password']);
+        echo json_encode([
+            'status' => false,
+            'command' => 'create_password',
+            'error' => 'Failed to save password. Check that the "' . SETTINGS_PATH . '" directory is writable by your web server.'
+        ]);
         return;
     }
 

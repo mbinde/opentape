@@ -69,11 +69,12 @@ opentape/
 
 ## Changelog
 
-### 1.1.0
+### 1.0.1
 
 - Moved user data to `userdata/` folder for safer updates
 - Added update checker in Settings
 - Security hardening (XSS fixes, CSP headers, upload validation)
+- Improved error messages for setup/permissions issues
 - Removed legacy MD5 password support
 - Removed old serialized PHP migration code
 

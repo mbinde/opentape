@@ -14,6 +14,19 @@ if (is_password_set()) {
     exit();
 }
 
+// Check for setup issues
+$setup_errors = [];
+if (!is_dir(SETTINGS_PATH)) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory does not exist. Please create it.';
+} elseif (!is_writable(SETTINGS_PATH)) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory is not writable. Please set write permissions (chmod 755 or 775).';
+}
+if (!is_dir(SONGS_PATH)) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SONGS_PATH) . '</code> directory does not exist. Please create it.';
+} elseif (!is_writable(SONGS_PATH)) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SONGS_PATH) . '</code> directory is not writable. Please set write permissions (chmod 755 or 775).';
+}
+
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,6 +47,19 @@ if (is_password_set()) {
                 <h2>Welcome!</h2>
             </div>
 
+<?php if (!empty($setup_errors)): ?>
+            <div class="section" style="background:#fee; border:1px solid #c00; padding:15px;">
+                <h2 style="color:#c00;">Setup Required</h2>
+                <p>Please fix the following issues before continuing:</p>
+                <ul style="margin:10px 0; padding-left:20px;">
+                    <?php foreach ($setup_errors as $error): ?>
+                        <li style="margin:5px 0;"><?php echo $error; ?></li>
+                    <?php endforeach; ?>
+                </ul>
+                <p style="margin-top:15px;"><strong>How to fix:</strong> Use your FTP client or hosting control panel to create the directories and set permissions. Contact your web host if you need help.</p>
+                <p><a href="" onclick="location.reload(); return false;">Refresh this page</a> after making changes.</p>
+            </div>
+<?php else: ?>
             <div class="section" id="setpassword">
                 <h2>Set an admin password on your mixtape</h2>
                 <p>Enter the new password twice:</p>
@@ -42,7 +68,9 @@ if (is_password_set()) {
                     <input type="password" id="password2" maxlength="255" size="20" placeholder="Confirm password"><br>
                     <input type="button" class="small_button" id="password_button" value="Create Password">
                 </form>
+                <div id="password_error" style="display:none; margin-top:15px; padding:10px; background:#fee; border:1px solid #c00; color:#c00;"></div>
             </div>
+<?php endif; ?>
 
             <div class="section" style="display:none;" id="uploadnext">
                 <a style="font-size: 24px; font-weight: bold;" href="<?php echo $REL_PATH; ?>code/edit.php">Now, add songs!</a>
@@ -67,24 +95,41 @@ if (is_password_set()) {
         const password2 = document.getElementById('password2');
         const setPasswordSection = document.getElementById('setpassword');
         const uploadNextSection = document.getElementById('uploadnext');
+        const passwordError = document.getElementById('password_error');
+
+        function showError(message) {
+            if (passwordError) {
+                passwordError.textContent = message;
+                passwordError.style.display = 'block';
+            }
+            fader.flash(message, '#ff0000');
+        }
+
+        function hideError() {
+            if (passwordError) {
+                passwordError.style.display = 'none';
+            }
+        }
 
         if (passwordButton && password1 && password2) {
             passwordButton.addEventListener('click', function() {
+                hideError();
                 const p1 = password1.value;
                 const p2 = password2.value;
 
                 if (!p1 || !p2) {
-                    fader.flash('Please enter password twice', '#ff0000');
+                    showError('Please enter password twice');
                     return;
                 }
 
                 if (p1 !== p2) {
-                    fader.flash('Passwords do not match', '#ff0000');
+                    showError('Passwords do not match');
                     return;
                 }
 
                 fader.set('progress');
                 document.body.style.cursor = 'wait';
+                passwordButton.disabled = true;
 
                 const formData = new FormData();
                 formData.append('command', 'create_password');
@@ -97,18 +142,20 @@ if (is_password_set()) {
                 .then(response => response.json())
                 .then(data => {
                     document.body.style.cursor = 'default';
+                    passwordButton.disabled = false;
 
                     if (data.status) {
                         fader.flash('Password created!', '#008000');
                         setPasswordSection.style.display = 'none';
                         uploadNextSection.style.display = '';
                     } else {
-                        fader.set('failure');
+                        showError(data.error || 'Failed to create password. Please check directory permissions.');
                     }
                 })
                 .catch(err => {
                     document.body.style.cursor = 'default';
-                    fader.set('failure');
+                    passwordButton.disabled = false;
+                    showError('Connection error. Please try again.');
                     console.error('Error:', err);
                 });
             });
