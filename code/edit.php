@@ -141,7 +141,7 @@ $csrf_token = get_csrf_token();
                     <label for="caption">Caption:</label>
                     <input type="text" id="caption" maxlength="255" size="55" value="<?php echo escape_for_inputs($prefs_struct['caption'] ?? ''); ?>"><br>
                     <label for="color_input">Color:</label>
-                    <input type="text" id="color_input" value="<?php echo htmlspecialchars($prefs_struct['color'] ?? DEFAULT_COLOR, ENT_QUOTES, 'UTF-8'); ?>" style="background:#<?php echo htmlspecialchars($prefs_struct['color'] ?? DEFAULT_COLOR, ENT_QUOTES, 'UTF-8'); ?>;" size="6" maxlength="6">
+                    <input type="text" id="color_input" value="<?php echo htmlspecialchars($prefs_struct['color'] ?? DEFAULT_COLOR, ENT_QUOTES, 'UTF-8'); ?>" style="background:#<?php echo htmlspecialchars($prefs_struct['color'] ?? DEFAULT_COLOR, ENT_QUOTES, 'UTF-8'); ?>;" size="7" maxlength="7">
                     <input type="button" id="color_reset_button" value="Reset">
                     <a style="vertical-align:top;" href="https://www.w3schools.com/colors/colors_picker.asp" target="_blank">(color picker)</a><br>
                     <input id="banner_button" type="button" class="save" value="Save">
@@ -260,10 +260,12 @@ $csrf_token = get_csrf_token();
             bannerButton.addEventListener('click', function() {
                 const banner = document.getElementById('banner').value;
                 const caption = document.getElementById('caption').value;
-                const color = document.getElementById('color_input').value;
+                // Strip # if present
+                const color = document.getElementById('color_input').value.replace(/^#/, '');
 
                 ajaxPost('bannercaptioncolor', 'none', { banner, caption, color })
                     .then(() => {
+                        document.getElementById('color_input').value = color;
                         document.getElementById('color_input').style.background = '#' + color;
                     });
             });
