@@ -15,16 +15,25 @@ if (is_password_set()) {
 }
 
 // Check for setup issues
+$setup_status = get_setup_status();
 $setup_errors = [];
-if (!is_dir(SETTINGS_PATH)) {
-    $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory does not exist. Please create it.';
-} elseif (!is_writable(SETTINGS_PATH)) {
-    $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory is not writable. Please set write permissions (chmod 755 or 775).';
+
+if (!$setup_status['userdata_dir']) {
+    $setup_errors[] = 'The <code>userdata/</code> directory could not be created.';
+} elseif (!$setup_status['userdata_writable']) {
+    $setup_errors[] = 'The <code>userdata/</code> directory is not writable.';
 }
-if (!is_dir(SONGS_PATH)) {
-    $setup_errors[] = 'The <code>' . htmlspecialchars(SONGS_PATH) . '</code> directory does not exist. Please create it.';
-} elseif (!is_writable(SONGS_PATH)) {
-    $setup_errors[] = 'The <code>' . htmlspecialchars(SONGS_PATH) . '</code> directory is not writable. Please set write permissions (chmod 755 or 775).';
+
+if (!$setup_status['settings_dir']) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory could not be created.';
+} elseif (!$setup_status['settings_writable']) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SETTINGS_PATH) . '</code> directory is not writable.';
+}
+
+if (!$setup_status['songs_dir']) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SONGS_PATH) . '</code> directory could not be created.';
+} elseif (!$setup_status['songs_writable']) {
+    $setup_errors[] = 'The <code>' . htmlspecialchars(SONGS_PATH) . '</code> directory is not writable.';
 }
 
 ?><!DOCTYPE html>

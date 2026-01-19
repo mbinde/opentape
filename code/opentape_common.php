@@ -31,20 +31,8 @@ if (preg_match('/code\/?$/', $cwd) || preg_match('|' . SETTINGS_PATH . '?$|', $c
     chdir('..');
 }
 
-// Auto-create userdata directories if they don't exist
-if (!is_dir('userdata')) {
-    @mkdir('userdata', 0755, true);
-    // Prevent directory listing
-    @file_put_contents('userdata/index.php', "<?php http_response_code(403); exit('Access denied');");
-}
-if (!is_dir(SETTINGS_PATH)) {
-    @mkdir(SETTINGS_PATH, 0755, true);
-    // Protect settings from direct web access
-    @file_put_contents(SETTINGS_PATH . '.htaccess', "# Deny direct access\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder deny,allow\nDeny from all\n</IfModule>\n");
-}
-if (!is_dir(SONGS_PATH)) {
-    @mkdir(SONGS_PATH, 0755, true);
-}
+// Auto-create userdata directories and security files
+ensure_userdata_setup();
 
 // ============================================================================
 // SESSION MANAGEMENT (using PHP native sessions)
@@ -568,6 +556,79 @@ function send_security_headers(): void {
     header('X-Frame-Options: SAMEORIGIN');
     header('Referrer-Policy: strict-origin-when-cross-origin');
     header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self' https://api.github.com; script-src 'self'; frame-ancestors 'self'; connect-src 'self' https://api.github.com");
+}
+
+// ============================================================================
+// USERDATA SETUP
+// ============================================================================
+
+/**
+ * Ensure userdata directories and security files exist
+ * Returns array of errors, empty if all OK
+ */
+function ensure_userdata_setup(): array {
+    $errors = [];
+
+    // Create userdata directory
+    if (!is_dir('userdata')) {
+        if (!@mkdir('userdata', 0755, true)) {
+            $errors[] = 'Could not create userdata/ directory';
+        }
+    }
+
+    // Create and verify userdata/index.php (prevents directory listing)
+    $index_file = 'userdata/index.php';
+    $index_content = "<?php\nhttp_response_code(403);\nexit('Access denied');\n";
+    if (is_dir('userdata') && !file_exists($index_file)) {
+        @file_put_contents($index_file, $index_content);
+    }
+
+    // Create settings directory
+    if (!is_dir(SETTINGS_PATH)) {
+        if (!@mkdir(SETTINGS_PATH, 0755, true)) {
+            $errors[] = 'Could not create ' . SETTINGS_PATH . ' directory';
+        }
+    }
+
+    // Create and verify settings/.htaccess (blocks direct access)
+    $htaccess_file = SETTINGS_PATH . '.htaccess';
+    $htaccess_content = "# Deny direct access to settings files\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder deny,allow\nDeny from all\n</IfModule>\n";
+    if (is_dir(SETTINGS_PATH) && !file_exists($htaccess_file)) {
+        @file_put_contents($htaccess_file, $htaccess_content);
+    }
+
+    // Create songs directory
+    if (!is_dir(SONGS_PATH)) {
+        if (!@mkdir(SONGS_PATH, 0755, true)) {
+            $errors[] = 'Could not create ' . SONGS_PATH . ' directory';
+        }
+    }
+
+    return $errors;
+}
+
+/**
+ * Get detailed setup status for diagnostics
+ */
+function get_setup_status(): array {
+    $status = [
+        'userdata_dir' => is_dir('userdata'),
+        'userdata_writable' => is_dir('userdata') && is_writable('userdata'),
+        'userdata_index' => file_exists('userdata/index.php'),
+        'settings_dir' => is_dir(SETTINGS_PATH),
+        'settings_writable' => is_dir(SETTINGS_PATH) && is_writable(SETTINGS_PATH),
+        'settings_htaccess' => file_exists(SETTINGS_PATH . '.htaccess'),
+        'songs_dir' => is_dir(SONGS_PATH),
+        'songs_writable' => is_dir(SONGS_PATH) && is_writable(SONGS_PATH),
+    ];
+
+    $status['all_ok'] = $status['userdata_writable']
+        && $status['settings_writable']
+        && $status['songs_writable']
+        && $status['userdata_index']
+        && $status['settings_htaccess'];
+
+    return $status;
 }
 
 // ============================================================================
