@@ -60,6 +60,12 @@ if (!empty($_POST['pass'])) {
                     <input name="pass" type="password" size="25" id="pass" autofocus><br>
                     <input type="submit" class="button" value="LOGIN">
                 </form>
+                <?php
+                $password_file = file_exists(SETTINGS_PATH . '.opentape_password.json')
+                    ? '.opentape_password.json'
+                    : '.opentape_password.php';
+                ?>
+                <p class="hint">Forgot your password? Delete <code>settings/<?php echo $password_file; ?></code> from your server and refresh this page.</p>
             </div>
 
             <div class="footer">

@@ -8,7 +8,7 @@
 define("SETTINGS_PATH", "settings/");
 define("SONGS_PATH", "songs/");
 define("DEFAULT_COLOR", "EC660F");
-define("VERSION", "1.0.1");
+define("VERSION", "1.1");
 define("GITHUB_REPO", "mbinde/opentape");
 define("GITHUB_API_URL", "https://api.github.com/repos/" . GITHUB_REPO . "/releases/latest");
 // --- END OF CONFIGURABLE ADVANCED SETTINGS ---- //

@@ -27,11 +27,15 @@ If automatic directory creation fails, create `songs/` and `settings/` manually 
 
 ## Migrating from Old Opentape (pre-1.0)
 
-Old Opentape installations should work with minimal changes:
+Simply extract the new release over your existing installation:
 
-1. Upload the new code files (index.php, code/, res/)
-2. Keep your existing `songs/` and `settings/` folders
-3. You will need to set a new password (old MD5 passwords are not supported)
+1. Download and extract the latest release
+2. Copy all files over your existing Opentape folder
+3. Your `songs/` and `settings/` folders will be preserved
+4. On first visit, legacy settings are automatically converted to the new format
+5. Your old password will work and be upgraded to secure bcrypt on login
+
+To reset a forgotten password, delete `settings/.opentape_password.json` (or `settings/.opentape_password.php` for older installs) and visit your site to set a new one.
 
 ## Features
 
@@ -68,14 +72,15 @@ opentape/
 
 ## Changelog
 
-### 1.0.1
+### 1.1
 
-- Added update checker in Settings
+- **Upgrade-in-place support**: Extract new release over old Opentape installs (pre-1.0) and everything auto-migrates
+- Captions again support HTML links (`<a href="https://...">`) with automatic security attributes
+- New songs again appear at bottom of playlist instead of top
 - Security hardening (XSS fixes, CSP headers, upload validation)
 - Improved error messages for setup/permissions issues
 - Auto-create `songs/` and `settings/` directories on first run
-- Removed legacy MD5 password support
-- Removed old serialized PHP migration code
+- Added update checker in Settings
 
 ### 1.0.0
 
