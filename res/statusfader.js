@@ -1,48 +1,79 @@
-var StatusFader = new Class({
-	initialize: function(el) {
-		this.el = el ? el : $(document).getElement('div.ajax_status');
-		this.fx = new Fx.Morph(this.el,{
-			link: 'cancel',
-			duration: 5000
-		});
-		this.colors = { good: '#008000', bad: '#ff0000', neutral: '#444' };
-		this.messages = { progress: 'Wait&hellip;', success: 'Saved', failure: 'ERROR' }
-	},
-	set: function(msg) {
-		this.el.set('html',this.messages[msg]);
-		switch(msg) {
-			case 'progress':
-				this.el.setStyle('color',this.colors['neutral']);
-				this.el.setStyle('padding','6px');
-				this.el.setStyle('width','150px');
-				this.fx.set({'opacity':1});
-			break;
-			case 'success':
-				this.el.setStyle('color',this.colors['good']);
-				this.el.setStyle('padding','6px');
-				this.el.setStyle('width','150px');
-				this.fx.start({ 'opacity': [1,0] });
-			break;	
-			case 'failure':
-				this.el.setStyle('color',this.colors['bad']);
-				this.el.setStyle('padding','6px');
-				this.el.setStyle('width','150px');
-				this.fx.start({'opacity':[1,0]});
-			break;						
-		}
-	},
-	flash: function (msg, color)
-		{
-		this.el.set('html', msg);
-		this.el.setStyle('color', color);
-		this.el.setStyle('padding','6px');
-		this.fx.start({'opacity':[1,0]});
-		},
-	stay: function(msg, color)
-		{
-		this.el.set('html', msg);
-		this.el.setStyle('color', color);
-		this.el.setStyle('padding','6px');
-		this.fx.set({'opacity':1});
-		}
-});
+/**
+ * Opentape Status Fader
+ * Displays status messages with fade animations
+ * Modernized with vanilla JS and CSS transitions
+ */
+
+class StatusFader {
+    constructor(el) {
+        this.el = el || document.querySelector('div.ajax_status');
+        this.colors = { good: '#008000', bad: '#ff0000', neutral: '#444' };
+        this.messages = { progress: 'Wait\u2026', success: 'Saved', failure: 'ERROR' };
+        this.fadeTimeout = null;
+    }
+
+    set(msg) {
+        if (!this.el) return;
+
+        this.el.textContent = this.messages[msg] || msg;
+
+        // Clear any pending fade
+        if (this.fadeTimeout) {
+            clearTimeout(this.fadeTimeout);
+            this.fadeTimeout = null;
+        }
+
+        switch (msg) {
+            case 'progress':
+                this.el.style.color = this.colors.neutral;
+                this.el.style.padding = '6px';
+                this.el.style.opacity = '1';
+                break;
+
+            case 'success':
+                this.el.style.color = this.colors.good;
+                this.el.style.padding = '6px';
+                this.el.style.opacity = '1';
+                this.startFade();
+                break;
+
+            case 'failure':
+                this.el.style.color = this.colors.bad;
+                this.el.style.padding = '6px';
+                this.el.style.opacity = '1';
+                this.startFade();
+                break;
+        }
+    }
+
+    flash(msg, color) {
+        if (!this.el) return;
+
+        this.el.textContent = msg;
+        this.el.style.color = color;
+        this.el.style.padding = '6px';
+        this.el.style.opacity = '1';
+        this.startFade();
+    }
+
+    stay(msg, color) {
+        if (!this.el) return;
+
+        this.el.textContent = msg;
+        this.el.style.color = color;
+        this.el.style.padding = '6px';
+        this.el.style.opacity = '1';
+    }
+
+    startFade() {
+        // Small delay before fading
+        this.fadeTimeout = setTimeout(() => {
+            if (this.el) {
+                this.el.style.opacity = '0';
+            }
+        }, 2000);
+    }
+}
+
+// Export for global use
+window.StatusFader = StatusFader;

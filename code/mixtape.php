@@ -1,126 +1,121 @@
 <?php
-	
-	require_once("opentape_common.php");
+/**
+ * Opentape - Main Playlist View
+ */
 
-	check_cookie();
-	
-	$songlist_struct = scan_songs();
-	$songlist_struct_original = $songlist_struct;
-	$songlist_hash= md5(serialize($songlist_struct));
+require_once("opentape_common.php");
 
-	$prefs_struct = get_opentape_prefs();
-	
-	if(!empty($prefs_struct['banner'])) { $page_title = strip_tags($prefs_struct['banner']); } else { $page_title = "Opentape / " . count($songlist_struct) . " songs, " . get_total_runtime_string(); }
-	if(!empty($prefs_struct['color'])) { $header_bg_color = $prefs_struct['color']; } else { $header_bg_color = constant("DEFAULT_COLOR"); }
-	if(!empty($prefs_struct['banner'])) { $banner_header_text = $prefs_struct['banner']; } else { $banner_header_text = "OPENTAPE"; }
-	if(!empty($prefs_struct['caption'])) { $banner_caption_text = $prefs_struct['caption']; } else { $banner_caption_text = count($songlist_struct) . " songs, " . get_total_runtime_string(); }
+send_security_headers();
+init_session();
 
-?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<!--
+$songlist_struct = scan_songs();
+$songlist_struct_original = $songlist_struct;
 
-	Liberating taste.
-	
--->
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-	<head>
-	<title><?php echo $page_title; ?></title>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-	<meta name="robots" content="noindex, nofollow" />
-	<link rel="stylesheet" type="text/css" href="<?php echo $REL_PATH; ?>res/tape.css" />
-	<link rel="alternate" type="application/rss+xml" href="<?php echo $REL_PATH; ?>code/rss.php" />
-	<style type="text/css">
-		div.banner { background: #<?php echo $header_bg_color; ?>; }									
-	</style>
-		
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/mootools-core-1.3-yc.js"></script>
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/mootools-more-1.3-yc.js"></script>
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/soundmanager2-nodebug-jsmin.js"></script>
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/player.js"></script>
+$prefs_struct = get_opentape_prefs();
 
-	<script type="text/javascript">
-        soundManager.debugMode = false;
-        soundManager.url = 'res/';
-		soundManager.useHTML5Audio = true;
-	</script>
-	</head>
-	
-	<body>
-		<div class="container">
-			<div class="banner">
-				<div class="flag">
-					<h1><?php echo $banner_header_text; ?></h1>
-					<h2><?php echo $banner_caption_text; ?></h2>
-				</div>
-			</div>
-				
-			<ul class="songs">
+// Set page variables with fallbacks
+$page_title = !empty($prefs_struct['banner'])
+    ? strip_tags($prefs_struct['banner'])
+    : "Opentape / " . count($songlist_struct) . " songs, " . get_total_runtime_string();
+
+$header_bg_color = !empty($prefs_struct['color'])
+    ? htmlspecialchars($prefs_struct['color'], ENT_QUOTES, 'UTF-8')
+    : DEFAULT_COLOR;
+
+$banner_header_text = !empty($prefs_struct['banner'])
+    ? $prefs_struct['banner']
+    : "OPENTAPE";
+
+$banner_caption_text = !empty($prefs_struct['caption'])
+    ? $prefs_struct['caption']
+    : count($songlist_struct) . " songs, " . get_total_runtime_string();
+
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><?php echo htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?></title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="<?php echo $REL_PATH; ?>res/tape.css">
+    <link rel="alternate" type="application/rss+xml" href="<?php echo $REL_PATH; ?>code/rss.php">
+    <style>
+        div.banner { background: #<?php echo $header_bg_color; ?>; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="banner">
+            <div class="flag">
+                <h1><?php echo $banner_header_text; ?></h1>
+                <h2><?php echo $banner_caption_text; ?></h2>
+            </div>
+        </div>
+
+        <ul class="songs">
 <?php
-		
-		$i = 0;
-        foreach ($songlist_struct as $pos => $row) { 
+$i = 0;
+foreach ($songlist_struct as $pos => $row) {
+    if (!is_file(SONGS_PATH . $row['filename'])) {
+        unset($songlist_struct[$pos]);
+        continue;
+    }
 
-        	if (! is_file( constant("SONGS_PATH") . $row['filename']) ) {
-				unset($songlist_struct[$pos]);
-				continue;
-			}
+    $display_artist = '';
+    if (!empty($row['opentape_artist'])) {
+        $display_artist = htmlspecialchars($row['opentape_artist'], ENT_QUOTES, 'UTF-8') . " - ";
+    } elseif (!empty($row['artist'])) {
+        $display_artist = htmlspecialchars($row['artist'], ENT_QUOTES, 'UTF-8') . " - ";
+    }
 
+    $display_title = !empty($row['opentape_title'])
+        ? htmlspecialchars($row['opentape_title'], ENT_QUOTES, 'UTF-8')
+        : htmlspecialchars($row['title'] ?? '', ENT_QUOTES, 'UTF-8');
+
+    $playtime = htmlspecialchars($row['playtime_string'] ?? '0:00', ENT_QUOTES, 'UTF-8');
 ?>
-			<li class="song" id="song<?php echo $i; ?>">
-			<div class="name">
-				<?php
-					if (isset($row['opentape_artist']) && !empty($row['opentape_artist'])) { echo $row['opentape_artist'] . " - "; } 
-					elseif (!isset($row['opentape_artist']) && isset($row['artist'])) { echo $row['artist'] . " - "; } 
-					
-					if (isset($row['opentape_title'])) { echo $row['opentape_title']; }
-					else { echo $row['title']; }
-				?>
-			</div>
+            <li class="song" id="song<?php echo $i; ?>">
+                <div class="name"><?php echo $display_artist . $display_title; ?></div>
+<?php if (!empty($prefs_struct['display_mp3']) && $prefs_struct['display_mp3'] == 1): ?>
+                <a class="mp3" href="<?php echo $REL_PATH . SONGS_PATH . rawurlencode($row['filename']); ?>" target="_blank">MP3</a>
+<?php else: ?>
+                &nbsp;
+<?php endif; ?>
+                <div class="info">
+                    <div class="clock"></div> <strong><?php echo $playtime; ?></strong>
+                </div>
+            </li>
+<?php
+    $i++;
+}
 
-			<?php if (isset($prefs_struct['display_mp3']) && $prefs_struct['display_mp3']==1) { ?>
-			<a class="mp3" href="<?php echo $REL_PATH . constant("SONGS_PATH") . rawurlencode($row['filename']); ?>" target="_blank">MP3</a>
-			<?php } else { ?>
-			&nbsp;
-			<?php } ?>
+// Save if any songs were removed
+if ($songlist_struct !== $songlist_struct_original) {
+    write_songlist_struct($songlist_struct);
+}
+?>
+        </ul>
 
-			<div class="info">
-			<div class="clock"></div> <strong><?php echo $row['playtime_string']; ?></strong>
-			</div>
-			
-		</li>
-<?php 
-			
-			$i++;
-	
-		}
-		
-    	if ($songlist_struct != $songlist_struct_original) { // a song in the db went missing!
-        	write_songlist_struct($songlist_struct);
+        <div class="footer">
+            <?php get_version_banner(); ?> &infin; <a href="<?php echo $REL_PATH; ?>code/edit.php">Admin</a>
+        </div>
+    </div>
+
+    <script src="<?php echo $REL_PATH; ?>res/player.js"></script>
+    <script>
+        var openPlaylist = [<?php
+            $list_items = [];
+            foreach ($songlist_struct as $pos => $row) {
+                $list_items[] = "'" . $pos . "'";
+            }
+            echo implode(',', $list_items);
+        ?>];
+        var pageTitle = <?php echo json_encode($page_title); ?>;
+
+        // Initialize player events
+        if (typeof event_init === 'function') {
+            event_init();
         }
-	
-?>
-	</ul>				
-		
-		<div class="footer">
-			<?php get_version_banner(); ?> &infin; <a href="<?php echo $REL_PATH; ?>code/edit.php">Admin</a>
-		</div>
-				
-		</div>
-		
-	<script type="text/javascript">
-		
-		var openPlaylist=new Array(); // build track array, do it in this sequence so files detected as missing in the load-scan are not included
-		openPlaylist.push(<?php
-			$list_str = "";
-			foreach ($songlist_struct as $pos => $row) { $list_str .= "'" . $pos . "',"; }
-			$list_str = preg_replace('/,$/','',$list_str);
-			echo $list_str;
-			?>);
-
-        var pageTitle = "<?php echo $page_title; ?>";
-            
-        event_init(); // bind events where needed
-
-	</script>
-				
-	</body>
+    </script>
+</body>
 </html>

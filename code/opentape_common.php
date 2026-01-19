@@ -1,17 +1,17 @@
 <?php
+/**
+ * Opentape Common Functions
+ * Modernized for PHP 8.x
+ */
 
 // --- CONFIGURABLE ADVANCED SETTINGS
-// Be sure to have an ending /.  These are relative to the dir
-// where you installed opentape.
-
 define("SETTINGS_PATH", "settings/");
 define("SONGS_PATH", "songs/");
 define("DEFAULT_COLOR", "EC660F");
+define("VERSION", "1.0.0");
 // --- END OF CONFIGURABLE ADVANCED SETTINGS ---- //
 
-// require_once ('JSON.php');
-ini_set("track_errors","on");
-
+// Calculate relative path from current URL
 global $REL_PATH;
 $REL_PATH = preg_replace('|settings/[^/]*?$|', '', $_SERVER['REQUEST_URI']);
 $REL_PATH = preg_replace('|songs/[^/]*?$|', '', $REL_PATH);
@@ -19,716 +19,554 @@ $REL_PATH = preg_replace('|code/[^/]*?$|', '', $REL_PATH);
 $REL_PATH = preg_replace('|res/[^/]*?$|', '', $REL_PATH);
 $REL_PATH = preg_replace('|/[^/]+?$|', '/', $REL_PATH);
 $REL_PATH = preg_replace('|/+|', '/', $REL_PATH);
-define("VERSION", "0.13");
-define("VERSION_CHECK_URL", "http://opentape.fm/public/latest_version.php");
-define("ANNOUNCE_SONGS_URL", "http://opentape.fm/public/announce_songs.php");
-define("ANNOUNCE_JS_URL", "http://opentape.fm/public/announce.js");
 
-// this may fix certain win32 issues, thanks fusen
+// Helper for getID3 on Windows
 define("GETID3_HELPERAPPSDIR", "/");
 
 // Change dir to the main install dir for consistency
 $cwd = getcwd();
-if (preg_match('/code\/?$/', $cwd) || preg_match('|' . constant("SETTINGS_PATH") . '?$|', $cwd) || preg_match('/res\/?$/', $cwd)) {
-	chdir('..');
+if (preg_match('/code\/?$/', $cwd) || preg_match('|' . SETTINGS_PATH . '?$|', $cwd) || preg_match('/res\/?$/', $cwd)) {
+    chdir('..');
 }
 
-//This function transforms the php.ini notation numbers (like '2M') to an integer (2*1024*1024 in this case)
-function let_to_num($v){ 
-    $l = substr($v, -1);
-    $ret = substr($v, 0, -1);
-    switch(strtoupper($l)){
-    case 'P':
-        $ret *= 1024;
-    case 'T':
-        $ret *= 1024;
-    case 'G':
-        $ret *= 1024;
-    case 'M':
-        $ret *= 1024;
-    case 'K':
-        $ret *= 1024;
-        break;
+// ============================================================================
+// SESSION MANAGEMENT (using PHP native sessions)
+// ============================================================================
+
+/**
+ * Initialize session with secure settings
+ */
+function init_session(): void {
+    if (session_status() === PHP_SESSION_NONE) {
+        // Set secure session cookie parameters
+        session_set_cookie_params([
+            'lifetime' => 86400 * 30, // 30 days
+            'path' => '/',
+            'domain' => '',
+            'secure' => is_https(),
+            'httponly' => true,
+            'samesite' => 'Strict'
+        ]);
+        session_start();
     }
-    return $ret;
 }
 
-function get_max_upload_mb () {
-	$max_upload_size = min(let_to_num(ini_get('post_max_size')), let_to_num(ini_get('upload_max_filesize')));
-	return round(($max_upload_size / (1024*1024)),2);
+/**
+ * Check if user is logged in
+ */
+function is_logged_in(): bool {
+    init_session();
+    return !empty($_SESSION['opentape_authenticated']) && $_SESSION['opentape_authenticated'] === true;
 }
 
-function get_max_upload_bytes () {
-	$max_upload_size = min(let_to_num(ini_get('post_max_size')), let_to_num(ini_get('upload_max_filesize')));
-	return $max_upload_size;
+/**
+ * Create a new authenticated session
+ */
+function create_session(): bool {
+    init_session();
+    // Regenerate session ID to prevent fixation attacks
+    session_regenerate_id(true);
+    $_SESSION['opentape_authenticated'] = true;
+    $_SESSION['opentape_login_time'] = time();
+    return true;
 }
 
-// returns microtime as a long number
-function microtime_float()
-{
-   list($usec, $sec) = explode(" ", microtime());
-   return ((float)$usec + (float)$sec);
-}
+/**
+ * Destroy the current session (logout)
+ */
+function remove_session(): bool {
+    init_session();
+    $_SESSION = [];
 
-function escape_for_inputs($string) {
-	return preg_replace("/'/", "&#39;", $string);
-}
-
-function escape_for_json($string) {
-	return preg_replace('/"/', '\"', $string);
-}
-
-function clean_titles($string) {
-	return preg_replace('/\\000/', '', $string);
-}
-
-function get_base_url() {
-
-	global $REL_PATH;
-
-	//if ( ($_SERVER['SERVER_PORT']==80 && (empty($_SERVER['HTTPS']) || !strcasecmp($_SERVER['HTTPS'],"off"))) ) {
-	return 'http://' . $_SERVER['HTTP_HOST'] . $REL_PATH;
-	/*
-	} elseif ( ($_SERVER['SERVER_PORT']!=80 && (empty($_SERVER['HTTPS']) || !strcasecmp($_SERVER['HTTPS'],"off"))) ) {
-		return 'http://' . $_SERVER['HTTP_HOST'] . ":" . $_SERVER['SERVER_PORT'] . $REL_PATH;
-	} elseif ($_SERVER['SERVER_PORT']==443 && (!empty($_SERVER['HTTPS']) || strcasecmp($_SERVER['HTTPS'],"off"))) {
-		return 'https://' . $_SERVER['HTTP_HOST'] . $REL_PATH;	
-	} else {
-		return 'https://' . $_SERVER['HTTP_HOST'] . ":" . $_SERVER['SERVER_PORT'] . $REL_PATH;	
-	}*/
-
-}
-
-function is_logged_in() {
-
-	$session_struct = get_session_struct();
-		
-	if (is_array($session_struct)) {
-		foreach ($session_struct as $pos => $item) { 
-			if(!strcmp($_COOKIE["opentape_session"], $item['key'])) {
-				return true;
-			}
-		}
-	}
-				
-	return false;
-	
-}
-
-function check_password($password) {
-
-	$password_struct = get_password_struct();		
-		
-	if (!strcmp( md5("MIXTAPESFORLIFE" . $password), $password_struct['hash']) ) {
-		return true;
-	} else {
-		return false;
-	}
-	
-}
-
-function is_password_set() {
-	
-	$password_struct = get_password_struct();
-
-	if (is_array($password_struct) && !empty($password_struct) && $password_struct !== false) {
-		return true;
-	} else {
-		return false;
-	}
-		
-}
-
-function set_password($password) {
-
-	$password_struct = array();
-	$password_struct['hash'] = md5("MIXTAPESFORLIFE" . $password);
-	
-	return write_password_struct($password_struct);
-	
-}
-
-// Here we give all users cookies, then we add/remove these session id's
-// into the session file
-function check_cookie() {
-
-	if (!isset($_COOKIE["opentape_session"])) {
-		if (!strcasecmp($_SERVER['HTTP_HOST'],"localhost")) {
-			setcookie("opentape_session", md5("MIXTAPESFORLIFE" .  microtime_float()), (time() + (86400*365)), "/", "");
-		} elseif (preg_match('/:\d+$/', $_SERVER['HTTP_HOST'])) {
-			setcookie("opentape_session", md5("MIXTAPESFORLIFE" .  microtime_float()), (time() + (86400*365)), "/", "");
-		} else {
-			setcookie("opentape_session", md5("MIXTAPESFORLIFE" .  microtime_float()), (time() + (86400*365)), "/", $_SERVER['HTTP_HOST']);
-		}
-	}
-
-}
-
-function create_session() {
-	
-	$session_struct = get_session_struct();
-	$session_item = array();
-
-	if($session_struct===false) { $session_struct=array(); }	
-
-	if (isset($_COOKIE["opentape_session"])) {
-
-		$session_item['key'] = $_COOKIE["opentape_session"];
-		$session_item['ts'] = time();
-		array_push($session_struct, $session_item);
-						
-		return write_session_struct($session_struct);	
-	
-	} else {
-	
-		return false;
-		
-	}
-
-}
-
-function remove_session() {
-
-	$session_struct = get_session_struct();
-	$session_struct_new = array();
-	$session_item = array();
-	
-	if (is_array($session_struct)) {
-	
-		// rewrite the session struct without the one we are removing
-		foreach ($session_struct as $pos => $item) { 
-			
-			if(strcmp($_COOKIE["opentape_session"], $item['key'])) {
-				array_push($session_struct_new,$session_item);
-			}
-		
-		}
-		
-		return write_session_struct($session_struct_new);
-					
-	} else {
-		// if the session file doesn't exist, there's nothing to remove the session from
-		// so we just say ok.
-	}
-	
-	return true;
-
-}
-
-
-
-function scan_songs() {
-
-	require_once('getid3.php');
-	
-	$dir_handle = opendir(constant("SONGS_PATH"));
-	
-	// Initialize getID3 engine
-	$getID3 = new getID3;
-		
-	$songlist_struct = get_songlist_struct();
-	$songlist_struct_original = $songlist_struct;
-	$songlist_new_items = array();
-	
-	// List all the files
-    while (false !== ($file = readdir($dir_handle)) ) {
-
-		if ($file!=="." && $file!==".." && preg_match('/\.mp3$/', $file)) {
-
-			// error_log("Analyzing: " . constant("SONGS_PATH") . $file . " file_exists=" . file_exists(constant("SONGS_PATH") . $file));
-			// error_log("id3_structure: " . print_r($id3_info,1) . "\nID3v2:" . $id3_info['id3v2']['comments']['artist'][0] . " - " . $id3_info['id3v2']['comments']['title'][0]);
-			// error_log("ID3v1:" . $id3_info['id3v1']['artist'] . " - " . $id3_info['id3v1']['title']);
-			
-			if ( !isset($songlist_struct[ base64_encode(rawurlencode($file)) ]) ) {
-		
-				$id3_info = $getID3->analyze(constant("SONGS_PATH") . $file);
-		
-				$song_item = array();
-
-				// Check id3 v2 tags, 
-				if (!empty($id3_info['id3v2']['comments']['artist'][0])) {
-					$song_item['artist'] = clean_titles($id3_info['id3v2']['comments']['artist'][0]);
-				} elseif (!empty($id3_info['id3v1']['artist'])) {
-					$song_item['artist'] = clean_titles($id3_info['id3v1']['artist']);
-				} /*else { 
-					$song_item['artist'] = "Unknown artist";
-				} */
-
-				if (!empty($id3_info['id3v2']['comments']['title'][0])) {
-					$song_item['title'] = clean_titles($id3_info['id3v2']['comments']['title'][0]);
-				} elseif (!empty($id3_info['id3v1']['title'])) {
-					$song_item['title'] = clean_titles($id3_info['id3v1']['title']);
-				} /*else { 
-					$song_item['title'] = "Unknown title";
-				} */
-				
-				// if we are missing tags, set the title to the filename, sans ".mp3"
-				if (!isset($song_item['artist']) && !isset($song_item['title'])) {
-					$song_item['artist'] = "";
-					$song_item['title'] = preg_replace('/\.mp3$/i', '', $id_info['filename']);
-				} elseif (!isset($song_item['artist'])) { // fill in some of the blanks otherwise
-					$song_item['artist'] = "Unknown artist";
-				} elseif (!isset($song_item['title'])) {
-					$song_item['title'] = "Unknown track";
-				}
-									
-				$song_item['filename'] = $id3_info['filename'];
-				$song_item['playtime_seconds'] = $id3_info['playtime_seconds'];
-				$song_item['playtime_string'] = $id3_info['playtime_string'];
-				$song_item['mtime'] = filemtime(constant("SONGS_PATH") . $file);
-				$song_item['size'] = filesize(constant("SONGS_PATH") . $file);
-				$songlist_new_items[ base64_encode(rawurlencode($id3_info['filename'])) ] = $song_item;
-			
-			}
-				
-		}
-		
+    // Delete session cookie
+    if (ini_get("session.use_cookies")) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000,
+            $params["path"], $params["domain"],
+            $params["secure"], $params["httponly"]
+        );
     }
-    
-    // if changed, save it
+
+    session_destroy();
+    return true;
+}
+
+// ============================================================================
+// CSRF PROTECTION
+// ============================================================================
+
+/**
+ * Generate or retrieve CSRF token
+ */
+function get_csrf_token(): string {
+    init_session();
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+/**
+ * Validate CSRF token
+ */
+function validate_csrf_token(?string $token): bool {
+    init_session();
+    if (empty($token) || empty($_SESSION['csrf_token'])) {
+        return false;
+    }
+    return hash_equals($_SESSION['csrf_token'], $token);
+}
+
+/**
+ * Output hidden CSRF input field for forms
+ */
+function csrf_field(): string {
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(get_csrf_token(), ENT_QUOTES, 'UTF-8') . '">';
+}
+
+// ============================================================================
+// PASSWORD MANAGEMENT (using password_hash/password_verify)
+// ============================================================================
+
+/**
+ * Check if password has been set up
+ */
+function is_password_set(): bool {
+    $password_data = read_json_file('.opentape_password');
+    return is_array($password_data) && !empty($password_data['hash']);
+}
+
+/**
+ * Verify a password against stored hash
+ * Also handles migration from old MD5 hashes
+ */
+function check_password(string $password): bool {
+    $password_data = read_json_file('.opentape_password');
+
+    if (!is_array($password_data) || empty($password_data['hash'])) {
+        return false;
+    }
+
+    // Check if this is an old MD5 hash (32 chars) or new password_hash (60+ chars)
+    if (strlen($password_data['hash']) === 32) {
+        // Old MD5 format: md5("MIXTAPESFORLIFE" . $password)
+        if (md5("MIXTAPESFORLIFE" . $password) === $password_data['hash']) {
+            // Migrate to new hash format on successful login
+            set_password($password);
+            return true;
+        }
+        return false;
+    }
+
+    // New password_hash format
+    return password_verify($password, $password_data['hash']);
+}
+
+/**
+ * Set a new password
+ */
+function set_password(string $password): bool {
+    $password_data = [
+        'hash' => password_hash($password, PASSWORD_DEFAULT),
+        'updated' => time()
+    ];
+    return write_json_file('.opentape_password', $password_data);
+}
+
+// ============================================================================
+// JSON FILE STORAGE (replacing serialized PHP)
+// ============================================================================
+
+/**
+ * Read data from a JSON file in settings directory
+ * Handles migration from old serialized PHP format
+ */
+function read_json_file(string $filename_base): array {
+    $json_path = SETTINGS_PATH . $filename_base . '.json';
+    $php_path = SETTINGS_PATH . $filename_base . '.php';
+    $array_path = SETTINGS_PATH . $filename_base . '.array';
+
+    // Try JSON file first (new format)
+    if (file_exists($json_path) && is_readable($json_path)) {
+        $content = file_get_contents($json_path);
+        $data = json_decode($content, true);
+        return is_array($data) ? $data : [];
+    }
+
+    // Try old PHP format and migrate
+    if (file_exists($php_path) && is_readable($php_path)) {
+        $data = migrate_php_storage($php_path, $filename_base);
+        if ($data !== null) {
+            return $data;
+        }
+    }
+
+    // Try old .array format and migrate
+    if (file_exists($array_path) && is_readable($array_path)) {
+        $content = file_get_contents($array_path);
+        $data = @unserialize($content);
+        if (is_array($data)) {
+            // Migrate to JSON
+            write_json_file($filename_base, $data);
+            return $data;
+        }
+    }
+
+    return [];
+}
+
+/**
+ * Migrate old PHP serialized storage to JSON
+ */
+function migrate_php_storage(string $php_path, string $filename_base): ?array {
+    $content = file_get_contents($php_path);
+
+    // Extract the base64-encoded serialized data
+    // Format: <?php $varname_data = "base64string"; ? >
+    if (preg_match('/\$\w+_data\s*=\s*"([^"]+)"/', $content, $matches)) {
+        $decoded = base64_decode($matches[1]);
+        $data = @unserialize($decoded);
+
+        if (is_array($data)) {
+            // Write to new JSON format
+            write_json_file($filename_base, $data);
+            return $data;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Write data to a JSON file in settings directory
+ */
+function write_json_file(string $filename_base, array $data): bool {
+    $json_path = SETTINGS_PATH . $filename_base . '.json';
+    $json = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+    if ($json === false) {
+        error_log("Failed to encode JSON for $filename_base");
+        return false;
+    }
+
+    $bytes = file_put_contents($json_path, $json, LOCK_EX);
+    return $bytes !== false;
+}
+
+// ============================================================================
+// SONGLIST MANAGEMENT
+// ============================================================================
+
+/**
+ * Get the songlist structure
+ */
+function get_songlist_struct(): array {
+    return read_json_file('.opentape_songlist');
+}
+
+/**
+ * Write the songlist structure
+ * Validates that all files still exist before saving
+ */
+function write_songlist_struct(array $songlist_struct): bool {
+    // Remove entries for files that no longer exist
+    foreach ($songlist_struct as $pos => $row) {
+        if (!is_file(SONGS_PATH . ($row['filename'] ?? ''))) {
+            error_log(($row['filename'] ?? 'unknown') . " is not accessible, removing from songlist");
+            unset($songlist_struct[$pos]);
+        }
+    }
+
+    return write_json_file('.opentape_songlist', $songlist_struct);
+}
+
+/**
+ * Scan songs directory and update songlist with new files
+ */
+function scan_songs(): array {
+    require_once('getid3/getid3.php');
+
+    $dir_handle = opendir(SONGS_PATH);
+    if (!$dir_handle) {
+        return [];
+    }
+
+    $getID3 = new getID3();
+    $songlist_struct = get_songlist_struct();
+    $songlist_new_items = [];
+
+    while (false !== ($file = readdir($dir_handle))) {
+        if ($file === "." || $file === ".." || !preg_match('/\.mp3$/i', $file)) {
+            continue;
+        }
+
+        $key = base64_encode(rawurlencode($file));
+
+        if (!isset($songlist_struct[$key])) {
+            $id3_info = $getID3->analyze(SONGS_PATH . $file);
+
+            $song_item = [];
+
+            // Check ID3v2 tags first, then ID3v1
+            $song_item['artist'] = clean_titles(
+                $id3_info['id3v2']['comments']['artist'][0] ??
+                $id3_info['id3v1']['artist'] ??
+                ''
+            );
+
+            $song_item['title'] = clean_titles(
+                $id3_info['id3v2']['comments']['title'][0] ??
+                $id3_info['id3v1']['title'] ??
+                ''
+            );
+
+            // If missing tags, use filename
+            if (empty($song_item['artist']) && empty($song_item['title'])) {
+                $song_item['artist'] = "";
+                $song_item['title'] = preg_replace('/\.mp3$/i', '', $file);
+            } elseif (empty($song_item['artist'])) {
+                $song_item['artist'] = "Unknown artist";
+            } elseif (empty($song_item['title'])) {
+                $song_item['title'] = "Unknown track";
+            }
+
+            $song_item['filename'] = $id3_info['filename'] ?? $file;
+            $song_item['playtime_seconds'] = $id3_info['playtime_seconds'] ?? 0;
+            $song_item['playtime_string'] = $id3_info['playtime_string'] ?? '0:00';
+            $song_item['mtime'] = filemtime(SONGS_PATH . $file);
+            $song_item['size'] = filesize(SONGS_PATH . $file);
+
+            $songlist_new_items[$key] = $song_item;
+        }
+    }
+
+    closedir($dir_handle);
+
     if (!empty($songlist_new_items)) {
-    	
-    	$songlist_struct = array_merge($songlist_new_items, $songlist_struct);
-    
-    	announce_songs($songlist_struct);
-    	write_songlist_struct($songlist_struct);
-    	
+        $songlist_struct = array_merge($songlist_new_items, $songlist_struct);
+        write_songlist_struct($songlist_struct);
     }
-    
+
     return $songlist_struct;
-
 }
 
-// Renames songs in the songlist structure
-function rename_song($song_key, $artist, $title) {
-	
-	if (empty($song_key)) { 
-		error_log("rename_song called with insufficient arguments: song_key=$song_key, artist=$artist, title=$title");
-		return false; 
-	}
-	
-	$songlist_struct = get_songlist_struct();
-	
-	$songlist_struct[$song_key]['opentape_artist'] = $artist;
-	$songlist_struct[$song_key]['opentape_title'] = $title;
-	
-	return write_songlist_struct($songlist_struct);
-	
+/**
+ * Rename a song's display artist/title
+ */
+function rename_song(string $song_key, string $artist, string $title): bool {
+    if (empty($song_key)) {
+        error_log("rename_song called with empty song_key");
+        return false;
+    }
+
+    $songlist_struct = get_songlist_struct();
+
+    if (!isset($songlist_struct[$song_key])) {
+        return false;
+    }
+
+    $songlist_struct[$song_key]['opentape_artist'] = $artist;
+    $songlist_struct[$song_key]['opentape_title'] = $title;
+
+    return write_songlist_struct($songlist_struct);
 }
 
-// Reorders songs in the songlist structure
-function reorder_songs($args) {
+/**
+ * Reorder songs in the playlist
+ */
+function reorder_songs(array $args): bool {
+    if (empty($args)) {
+        error_log("reorder_songs called with empty args");
+        return false;
+    }
 
-	if (empty($args)) {
-		error_log("reorder_songs called with insufficient arguments: args=$args");
-		return false;
-	}
-	
-	$songlist_struct = get_songlist_struct();
-	$songlist_struct_new = array();
-	foreach ($args as $pos => $row) { 
-		
-		$songlist_struct_new[$row] = $songlist_struct[$row];
+    $songlist_struct = get_songlist_struct();
+    $songlist_struct_new = [];
 
-	}
+    foreach ($args as $row) {
+        if (isset($songlist_struct[$row])) {
+            $songlist_struct_new[$row] = $songlist_struct[$row];
+        }
+    }
 
-	return write_songlist_struct($songlist_struct_new);
-
+    return write_songlist_struct($songlist_struct_new);
 }
 
-// Deletes song from the disk and the songlist struct
-function delete_song($song_key) {
-	
-	if (empty($song_key)) {
-		error_log("delete_song called with insufficient arguments: song_key=$song_key");
-		return false;
-	}
-	
-	$songlist_struct = get_songlist_struct();
-	
-	if (unlink(constant("SONGS_PATH") . $songlist_struct[$song_key]['filename'])) {
-	
-		unset($songlist_struct[$song_key]);
-	
-	} else {
-		return false;
-	}
-	
-	return write_songlist_struct($songlist_struct);
+/**
+ * Delete a song from disk and songlist
+ */
+function delete_song(string $song_key): bool {
+    if (empty($song_key)) {
+        error_log("delete_song called with empty song_key");
+        return false;
+    }
 
+    $songlist_struct = get_songlist_struct();
+
+    if (!isset($songlist_struct[$song_key])) {
+        return false;
+    }
+
+    $filepath = SONGS_PATH . $songlist_struct[$song_key]['filename'];
+
+    if (file_exists($filepath) && !unlink($filepath)) {
+        return false;
+    }
+
+    unset($songlist_struct[$song_key]);
+
+    return write_songlist_struct($songlist_struct);
 }
 
-// Get total tape runtime from songlist_struct in seconds
-function get_total_runtime_seconds() {
+// ============================================================================
+// PREFERENCES MANAGEMENT
+// ============================================================================
 
-	$songlist_struct = get_songlist_struct();
-	
-	$total_secs = 0;
-	foreach ($songlist_struct as $pos => $row) { 
-		$total_secs += $row['playtime_seconds'];
-	}
-	
-	return $total_secs;
-	
+/**
+ * Get user preferences
+ */
+function get_opentape_prefs(): array {
+    return read_json_file('.opentape_prefs');
 }
 
-// Return pretty and formatted runtime
-function get_total_runtime_string() {
-	
-	$seconds = get_total_runtime_seconds();
-	$string = "";
-	
-	$mins = round($seconds / 60);
-	$secs = $seconds % 60;
-	
-	if ($mins==1) { $string .= "$mins min"; }
-	else { $string .= "$mins mins"; }
-	
-	if ($secs==1) { $string .= " $secs sec"; }
-	else { $string .= " $secs secs"; }
-	
-	return $string;
-
+/**
+ * Write user preferences
+ */
+function write_opentape_prefs(array $prefs_struct): bool {
+    return write_json_file('.opentape_prefs', $prefs_struct);
 }
 
-// Retrieves songlist struct from the disk file
-function get_songlist_struct() {
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
-	$songlist_struct = array();
-	$filename_base = ".opentape_songlist";
-	
-	if (file_exists( constant("SETTINGS_PATH") . $filename_base . ".php" ) &&
-		is_readable( constant("SETTINGS_PATH") . $filename_base . ".php" )  ) {
-	
-		// this is the more secure way of storing this data, as 
-		// the web users can't fetch it
-		include( constant("SETTINGS_PATH") . $filename_base . ".php" );
-		$songlist_struct = unserialize(base64_decode($songlist_struct_data));
-	
-	} elseif (file_exists( constant("SETTINGS_PATH") . $filename_base . ".array" ) &&
-			is_readable( constant("SETTINGS_PATH") . $filename_base . ".array" )  ) {
-
-		$songlist_struct_data = file_get_contents  ( constant("SETTINGS_PATH") . $filename_base .".array" );
-		$songlist_struct = unserialize($songlist_struct_data); 
-
-		if ($songlist_struct === false || !is_array($songlist_struct)) {
-			error_log ("Songlist currently empty");
-			$songlist_struct = array();
-		} else {
-			// upgrade to the new method of storing the data quietly
-			write_songlist_struct($songlist_struct);	
-		}
-		
-	}
-
-	return $songlist_struct;
-	
+/**
+ * Check if current request is HTTPS
+ */
+function is_https(): bool {
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        return true;
+    }
+    if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+        return true;
+    }
+    if (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443) {
+        return true;
+    }
+    return false;
 }
 
-// Saves the songlist data to disk.  Checks if all items in list are actualyl accessible
-function write_songlist_struct($songlist_struct) {
-
-	// before we write, lets verify that all the files in here are really working files, that they exist at least...
-	foreach ($songlist_struct as $pos => $row) { 
-		if (! is_file(constant("SONGS_PATH") . $row['filename']) ) {
-			error_log($row['filename'] . " is not accessible, removing it from the songlist");
-			unset($songlist_struct[$pos]);
-		}
-	}
-	
-	$songlist_struct_data = '<?php $songlist_struct_data = "' . base64_encode(serialize($songlist_struct)) . '"; ?>';
-	
-	$bytes_written = file_put_contents( constant("SETTINGS_PATH") . ".opentape_songlist.php", $songlist_struct_data);
-	if ($bytes_written===false) {
-		error_log("Unable to write songlist array");
-		return false;
-	} else {
-		return true;	
-	}
-	
+/**
+ * Get base URL for the application
+ */
+function get_base_url(): string {
+    global $REL_PATH;
+    $protocol = is_https() ? 'https' : 'http';
+    return $protocol . '://' . $_SERVER['HTTP_HOST'] . $REL_PATH;
 }
 
-function get_opentape_prefs() {
+/**
+ * Convert php.ini size notation to bytes
+ */
+function let_to_num(string $v): int {
+    $v = trim($v);
+    $last = strtoupper(substr($v, -1));
+    $value = (int)$v;
 
-	$prefs_struct = array();
-	$filename_base = ".opentape_prefs";
+    switch ($last) {
+        case 'P': $value *= 1024;
+        case 'T': $value *= 1024;
+        case 'G': $value *= 1024;
+        case 'M': $value *= 1024;
+        case 'K': $value *= 1024;
+    }
 
-	if (file_exists( constant("SETTINGS_PATH") . $filename_base . ".php" ) &&
-		is_readable( constant("SETTINGS_PATH") . $filename_base . ".php" )  ) {
-	
-		// this is the more secure way of storing this data, as 
-		// the web users can't fetch it
-		include( constant("SETTINGS_PATH") . $filename_base . ".php" );
-		$prefs_struct = unserialize(base64_decode($prefs_struct_data));
-
-	} elseif (file_exists( constant("SETTINGS_PATH") . $filename_base . ".array" ) &&
-			is_readable( constant("SETTINGS_PATH") . $filename_base . ".array" )  ) {
-	
-		$prefs_struct_data = file_get_contents  ( constant("SETTINGS_PATH") . $filename_base . ".array" );
-		$prefs_struct = unserialize($prefs_struct_data); 
-
-		if ($prefs_struct === false || !is_array($prefs_struct)) {
-			error_log ("prefs file currently empty");
-			$prefs_struct = array();
-		} else {
-			// we need to upgrade the file type to the new version by writing it over again here.
-			write_opentape_prefs($prefs_struct);
-		}
-		
-	}
-
-	return $prefs_struct;
-
+    return $value;
 }
 
-function write_opentape_prefs($prefs_struct) {
-
-	$prefs_struct_data = '<?php $prefs_struct_data = "' . base64_encode(serialize($prefs_struct)) . '"; ?>';
-
-	$bytes_written = file_put_contents( constant("SETTINGS_PATH") . ".opentape_prefs.php", $prefs_struct_data);
-	if ($bytes_written===false) {
-		error_log("Unable to write prefs php data in " . constant("SETTINGS_PATH") . ".opentape_prefs.php");
-		return false;
-	} else {
-		return true;	
-	}
-
-
+/**
+ * Get maximum upload size in MB
+ */
+function get_max_upload_mb(): float {
+    $max_upload = min(
+        let_to_num(ini_get('post_max_size')),
+        let_to_num(ini_get('upload_max_filesize'))
+    );
+    return round($max_upload / (1024 * 1024), 2);
 }
 
-function get_password_struct() {
-
-	$password_struct = array();
-	$filename_base = ".opentape_password";
-
-	if (file_exists( constant("SETTINGS_PATH") . $filename_base . ".php" ) &&
-		is_readable( constant("SETTINGS_PATH") . $filename_base .".php" )  ) {
-		// this is the more secure way of storing this data, as 
-		// the web users can't fetch it
-		include( constant("SETTINGS_PATH") . $filename_base . ".php" );
-		$password_struct = unserialize(base64_decode($password_struct_data));
-
-	} elseif (file_exists( constant("SETTINGS_PATH") . $filename_base . ".array" ) &&
-			is_readable( constant("SETTINGS_PATH") . $filename_base . ".array" )  ) {
-	
-		$password_struct_data = file_get_contents  ( constant("SETTINGS_PATH") . $filename_base . ".array" );
-		$password_struct = unserialize($password_struct_data); 
-
-		if ($password_struct === false || !is_array($password_struct)) {
-			error_log ("password file currently empty");
-			$password_struct = array();
-		} else {
-			// we need to upgrade the file type to the new version by writing it over again here.
-			write_password_struct($password_struct);
-		}
-		
-	} else {
-		return false;
-	}
-
-	return $password_struct;
-
+/**
+ * Get maximum upload size in bytes
+ */
+function get_max_upload_bytes(): int {
+    return min(
+        let_to_num(ini_get('post_max_size')),
+        let_to_num(ini_get('upload_max_filesize'))
+    );
 }
 
-function write_password_struct($password_struct) {
+/**
+ * Get total runtime of all songs in seconds
+ */
+function get_total_runtime_seconds(): int {
+    $songlist = get_songlist_struct();
+    $total = 0;
 
-	$password_struct_data = '<?php $password_struct_data = "' . base64_encode(serialize($password_struct)) . '"; ?>';
+    foreach ($songlist as $row) {
+        $total += (int)($row['playtime_seconds'] ?? 0);
+    }
 
-	$bytes_written = file_put_contents( constant("SETTINGS_PATH") . ".opentape_password.php", $password_struct_data);
-	if ($bytes_written===false) {
-		error_log("Unable to write password php data in " . constant("SETTINGS_PATH") . ".opentape_password.php");
-		return false;
-	} else {
-		return true;	
-	}
-
+    return $total;
 }
 
-function get_session_struct() {
+/**
+ * Get formatted runtime string
+ */
+function get_total_runtime_string(): string {
+    $seconds = get_total_runtime_seconds();
+    $mins = (int)round($seconds / 60);
+    $secs = $seconds % 60;
 
-	$session_struct = array();
-	$filename_base = ".opentape_session";
+    $str = $mins === 1 ? "$mins min" : "$mins mins";
+    $str .= $secs === 1 ? " $secs sec" : " $secs secs";
 
-	if (file_exists( constant("SETTINGS_PATH") . $filename_base . ".php" ) &&
-		is_readable( constant("SETTINGS_PATH") . $filename_base . ".php" )  ) {
-		
-		// this is the more secure way of storing this data, as 
-		// the web users can't fetch it
-		include( constant("SETTINGS_PATH") . $filename_base . ".php" );
-		$session_struct = unserialize(base64_decode($session_struct_data));
-
-	} elseif (file_exists( constant("SETTINGS_PATH") . $filename_base . ".array" ) &&
-			is_readable( constant("SETTINGS_PATH") . $filename_base . ".array" )  ) {
-	
-		$session_struct_data = file_get_contents  ( constant("SETTINGS_PATH") . $filename_base . ".array" );
-		$session_struct = unserialize($session_struct_data); 
-
-		if ($session_struct === false || !is_array($session_struct)) {
-			error_log ("password file currently empty");
-			$session_struct = array();
-		} else {
-			// we need to upgrade the file type to the new version by writing it over again here.
-			write_session_struct($session_struct);
-		}
-		
-	} else {
-		return false;
-	}
-
-	return $session_struct;
-
+    return $str;
 }
 
-function write_session_struct($session_struct) {
-
-	$session_struct_data = '<?php $session_struct_data = "' . base64_encode(serialize($session_struct)) . '"; ?>';
-
-	$bytes_written = file_put_contents( constant("SETTINGS_PATH") . ".opentape_session.php", $session_struct_data);
-	if ($bytes_written===false) {
-		error_log("Unable to write session php data in " . constant("SETTINGS_PATH") . ".opentape_session.php");
-		return false;
-	} else {
-		return true;	
-	}
-
+/**
+ * Clean null characters from ID3 tag strings
+ */
+function clean_titles(string $string): string {
+    return str_replace("\0", '', $string);
 }
 
-function get_version() {
-	return constant('VERSION');
+/**
+ * Escape string for use in HTML input value attributes
+ */
+function escape_for_inputs(string $string): string {
+    return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
 }
 
-function get_version_banner() {
-	echo 'This is <a href="http://opentape.fm">Opentape ' . constant('VERSION') . '</a>.';
+/**
+ * Get current version
+ */
+function get_version(): string {
+    return VERSION;
 }
 
-function check_for_update() {
-	
-	$ts = time();
-	
-	$prefs_struct = get_opentape_prefs();
-	
-	$result = do_post_request(constant("VERSION_CHECK_URL"), http_build_query(array('version'=>constant("VERSION"))), null);
-
-	$version_struct = json_decode(stripslashes($result),true);
-
-	if ($version_struct!==false && is_array($version_struct)) {
-		$prefs_struct['latest_opentape'] = $version_struct['version'];
-		$prefs_struct['latest_opentape_update'] = $version_struct['ts'];
-		$prefs_struct['last_update_check'] = $ts;
-		//error_log($result);
-	} else {
-		error_log("Version check returned incorrect result");
-		$prefs_struct['latest_opentape'] = -1;
-		$prefs_struct['latest_opentape_update'] = -1;
-		$prefs_struct['last_update_check'] = $ts;
-	} 
-	
-	if(write_opentape_prefs($prefs_struct)) {
-		return $prefs_struct;
-	} else {
-		false;
-	}
-	
+/**
+ * Output version banner HTML
+ */
+function get_version_banner(): void {
+    echo 'This is Opentape ' . htmlspecialchars(VERSION, ENT_QUOTES, 'UTF-8') . '.';
 }
 
-function announce_songs($songlist_struct) {
-	
-	global $REL_PATH;
-
-	$ts = time();
-	
-	$prefs_struct = get_opentape_prefs();
-	
-	$version_struct = json_encode($songlist_struct);
-
-	$data = http_build_query(
-			array(
-				'version' => constant("VERSION"),
-				'url' => get_base_url(),
-				'songs' => $version_struct 
-			)	
-		);
-
-	$result = do_post_request(constant("ANNOUNCE_SONGS_URL"), $data, null);
-	
-	if (!strcmp($result,"OK")) {
-		
-	} else {
-		error_log("Failed to announce songs to " . constant("ANNOUNCE_SONGS_URL") . " result was: " . $result);
-	}
-	
-	$prefs_struct['last_announce_songs'] = $ts;
-	if(write_opentape_prefs($prefs_struct)) {
-		return $prefs_struct;
-	} else {
-		false;
-	}
-	
-	
+/**
+ * Send security headers
+ */
+function send_security_headers(): void {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
 }
 
-function do_post_request($url, $data, $optional_headers = null) {
-	
-	// People with curl use curl
-	if (extension_loaded("curl")) {
-	
-		$curl_handle = curl_init();
-		curl_setopt($curl_handle, CURLOPT_SSL_VERIFYPEER, false);
-		curl_setopt($curl_handle, CURLOPT_URL, "$url");
-		curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 10);
-		curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1);
-		curl_setopt($curl_handle, CURLOPT_USERAGENT, "Opentape " . constant("VERSION"));
-		curl_setopt($curl_handle, CURLOPT_POST, 1);
-		curl_setopt($curl_handle, CURLOPT_POSTFIELDS, $data);
-		
-		$buffer = curl_exec($curl_handle);
-		curl_close($curl_handle);
-			
-		// check for success or failure
-		if (empty($buffer)) {
-			
-			return false;		
-		
-		} else {
-		
-			return $buffer;
-		
-		}
-	// everyone else is via the stream
-	// from here: http://netevil.org/blog/2006/nov/http-post-from-php-without-curl
-	} else {
-	
-	     $params = array('http' => array(
-                  'method' => 'POST',
-                  'content' => $data
-               ));
-               
-		 if ($optional_headers !== null) {
-		 	array_push($optional_headers, "User-Agent: Opentape " . constant("VERSION"));		
-		 } else {
-		 	$optional_headers = array();
-		 	array_push($optional_headers, "User-Agent: Opentape " . constant("VERSION"));
-		 }	
-		
-		$params['http']['header'] = $optional_headers;
-		
-		
-		$ctx = stream_context_create($params);
-		$fp = @fopen($url, 'rb', false, $ctx);
-		if (!$fp) {
-			return false;
-			//throw new Exception("Problem with $url, $php_errormsg");
-		}
-		$response = @stream_get_contents($fp);
-		if ($response === false) {
-			return false;
-			//throw new Exception("Problem reading data from $url, $php_errormsg");
-		}
-		return $response;
-
-	}
-	
-}
-
-
-?>

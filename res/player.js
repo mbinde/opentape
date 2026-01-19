@@ -1,385 +1,331 @@
+/**
+ * Opentape Player
+ * Modernized with vanilla JS and native HTML5 Audio
+ */
 
-var currentTrack;
-var isReady = 0;
-var playerStatus = "";
-var currentPos;
-var playerObj = Array();
+(function() {
+    'use strict';
 
-if (typeof(soundManager)!='undefined') {
-	soundManager.onready(function() {
-	  if (soundManager.supported()) {
-		isReady = 1;
-	 } else {
-	    // unsupported/error case
-	    alert("Unable to load Sound Manager to play audio :(");
-	  }
-	});
-}
+    // Player state
+    let currentTrack = null;
+    let playerStatus = 'STOPPED';
+    let currentPos = -1;
+    let audioPlayer = null;
+    let nextAudioPlayer = null;
+    let fadeInterval = null;
 
-window.debug = function(q,w,e,r){  
-    try { if (typeof console != 'undefined') { console.log.apply(console,arguments); }} 
-    catch(err){ if (typeof console != 'undefined') { console.log(q,w,e,r); }}
-};
-
-function event_init() {
-
-    // assign all the right events
-    for(i = 0; i < openPlaylist.length; i++) {
-    	var trackEntry = $('song'+i);
-    	if(trackEntry) {
-    	
-    		trackEntry.addEvent('mouseover',function() { trackEntry.addClass('hover'); });
-    		trackEntry.addEvent('mouseout',function() { trackEntry.removeClass('hover'); });
-    		
-    		// because of the numerous subelements one can click, we need to do this ugly thing
-    		trackEntry.addEvent('click',function(e) {
-    				targ = e.target || e.srcElement;
-    				if (targ.id.indexOf("song")!=-1) { togglePlayback(targ.id); }
-    				else if (targ.parentNode.id.indexOf("song")!=-1) { togglePlayback(targ.parentNode.id); }
-    				else if (targ.parentNode.parentNode.id.indexOf("song")!=-1) { togglePlayback(targ.parentNode.parentNode.id); }
-    				else if (targ.parentNode.parentNode.parentNode.id.indexOf("song")!=-1) { togglePlayback(targ.parentNode.parentNode.parentNode.id); }
-    		});
-    						
-    	}
-    }	
-
-}
-
-// base64 class: http://www.webtoolkit.info //
-var Base64 = {
-
-    // private property
-    _keyStr : "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",
-
-    // public method for encoding
-    encode : function (input) {
-        var output = "";
-        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
-        var i = 0;
-
-        input = Base64._utf8_encode(input);
-
-        while (i < input.length) {
-
-            chr1 = input.charCodeAt(i++);
-            chr2 = input.charCodeAt(i++);
-            chr3 = input.charCodeAt(i++);
-
-            enc1 = chr1 >> 2;
-            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
-            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
-            enc4 = chr3 & 63;
-
-            if (isNaN(chr2)) {
-                enc3 = enc4 = 64;
-            } else if (isNaN(chr3)) {
-                enc4 = 64;
-            }
-
-            output = output +
-            this._keyStr.charAt(enc1) + this._keyStr.charAt(enc2) +
-            this._keyStr.charAt(enc3) + this._keyStr.charAt(enc4);
-
+    // Debug helper
+    function debug(...args) {
+        if (typeof console !== 'undefined') {
+            console.log(...args);
         }
-
-        return output;
-    },
-
-    // public method for decoding
-    decode : function (input) {
-        var output = "";
-        var chr1, chr2, chr3;
-        var enc1, enc2, enc3, enc4;
-        var i = 0;
-
-        input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
-
-        while (i < input.length) {
-
-            enc1 = this._keyStr.indexOf(input.charAt(i++));
-            enc2 = this._keyStr.indexOf(input.charAt(i++));
-            enc3 = this._keyStr.indexOf(input.charAt(i++));
-            enc4 = this._keyStr.indexOf(input.charAt(i++));
-
-            chr1 = (enc1 << 2) | (enc2 >> 4);
-            chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-            chr3 = ((enc3 & 3) << 6) | enc4;
-
-            output = output + String.fromCharCode(chr1);
-
-            if (enc3 != 64) {
-                output = output + String.fromCharCode(chr2);
-            }
-            if (enc4 != 64) {
-                output = output + String.fromCharCode(chr3);
-            }
-
-        }
-
-        output = Base64._utf8_decode(output);
-
-        return output;
-
-    },
-
-    // private method for UTF-8 encoding
-    _utf8_encode : function (string) {
-        string = string.replace(/\r\n/g,"\n");
-        var utftext = "";
-
-        for (var n = 0; n < string.length; n++) {
-
-            var c = string.charCodeAt(n);
-
-            if (c < 128) {
-                utftext += String.fromCharCode(c);
-            }
-            else if((c > 127) && (c < 2048)) {
-                utftext += String.fromCharCode((c >> 6) | 192);
-                utftext += String.fromCharCode((c & 63) | 128);
-            }
-            else {
-                utftext += String.fromCharCode((c >> 12) | 224);
-                utftext += String.fromCharCode(((c >> 6) & 63) | 128);
-                utftext += String.fromCharCode((c & 63) | 128);
-            }
-
-        }
-
-        return utftext;
-    },
-
-    // private method for UTF-8 decoding
-    _utf8_decode : function (utftext) {
-        var string = "";
-        var i = 0;
-        var c = 0;
-        var c1 = 0;
-        var c2 = 0;
-
-        while ( i < utftext.length ) {
-
-            c = utftext.charCodeAt(i);
-
-            if (c < 128) {
-                string += String.fromCharCode(c);
-                i++;
-            }
-            else if((c > 191) && (c < 224)) {
-                c2 = utftext.charCodeAt(i+1);
-                string += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
-                i += 2;
-            }
-            else {
-                c2 = utftext.charCodeAt(i+1);
-                c3 = utftext.charCodeAt(i+2);
-                string += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
-                i += 3;
-            }
-
-        }
-
-        return string;
     }
 
-};
+    // Initialize event listeners on all tracks
+    function eventInit() {
+        if (typeof openPlaylist === 'undefined') return;
 
+        for (let i = 0; i < openPlaylist.length; i++) {
+            const trackEntry = document.getElementById('song' + i);
+            if (trackEntry) {
+                trackEntry.addEventListener('mouseover', function() {
+                    this.classList.add('hover');
+                });
+                trackEntry.addEventListener('mouseout', function() {
+                    this.classList.remove('hover');
+                });
+                trackEntry.addEventListener('click', function(e) {
+                    const target = e.target;
+                    // Find the song element by traversing up
+                    let songEl = target;
+                    while (songEl && !songEl.id.startsWith('song')) {
+                        songEl = songEl.parentNode;
+                    }
+                    if (songEl && songEl.id) {
+                        togglePlayback(songEl.id);
+                    }
+                });
+            }
+        }
+    }
 
-function togglePlayback(id) {
+    // Toggle play/pause for a track
+    function togglePlayback(id) {
+        const trackIndex = parseInt(id.replace(/song/, ''), 10);
 
-	id = parseInt(id.replace(/song/,''));
-	songClock = $$('#song'+currentTrack+' .clock');
-	songItem = $('song'+currentTrack); 
-	
-	if (id == currentTrack && typeof(currentTrack)!='undefined') { 
-		if(playerStatus == "PAUSED") {
-			songClock.removeClass('grey');
-			songClock.addClass('green');
-			playerObj[0].resume();
-		} else {
-			songClock.removeClass('green');
-			songClock.addClass('grey');	
-			playerObj[0].pause();
-		}
-	} else {
-	    cleanTrackDisplay(currentTrack);
-		currentTrack = id;
-		playTrack();
-	}
-}
+        if (trackIndex === currentTrack && currentTrack !== null) {
+            // Same track - toggle play/pause
+            if (playerStatus === 'PAUSED') {
+                resumeTrack();
+            } else {
+                pauseTrack();
+            }
+        } else {
+            // Different track - stop current and play new
+            cleanTrackDisplay(currentTrack);
+            currentTrack = trackIndex;
+            playTrack();
+        }
+    }
 
+    // Play the current track
+    function playTrack() {
+        if (typeof openPlaylist === 'undefined' || !openPlaylist[currentTrack]) {
+            return;
+        }
 
-function playTrack() {
+        // Stop and clean up previous player
+        if (audioPlayer) {
+            audioPlayer.pause();
+            audioPlayer.src = '';
+            audioPlayer = null;
+        }
 
-    if(playerObj[0]) { playerObj[0].destruct(); }
+        // If we have a preloaded next track, use it
+        if (nextAudioPlayer) {
+            audioPlayer = nextAudioPlayer;
+            nextAudioPlayer = null;
+            setupTrackDisplay(currentTrack);
+            audioPlayer.volume = 0.8;
+            audioPlayer.play().catch(err => debug('Play failed:', err));
+            return;
+        }
 
-    if(playerObj[1]) { 
-        tmp = playerObj.shift(); 
+        // Create new audio player
+        const filename = decodeURIComponent(atob(openPlaylist[currentTrack]));
+        audioPlayer = new Audio('songs/' + filename);
+        audioPlayer.volume = 0.8;
+
+        // Set up event listeners
+        audioPlayer.addEventListener('play', onPlay);
+        audioPlayer.addEventListener('pause', onPause);
+        audioPlayer.addEventListener('ended', onEnded);
+        audioPlayer.addEventListener('timeupdate', onTimeUpdate);
+        audioPlayer.addEventListener('error', onError);
+
         setupTrackDisplay(currentTrack);
-        return true;
-    } // likely already playing though, so just exit
-    			
-	try { playerObj[0] = soundManager.createSound({
-	  id: 'playerObj' + currentTrack,
-	  url: "songs/" + Base64.decode(openPlaylist[currentTrack]),
-		autoLoad: true,
-		autoPlay: true,
-		onload: sm_onload,
-		onplay: sm_onplay,
-		onresume: sm_onresume,
-		onpause: sm_onpause,
-		whileplaying: sm_whileplaying,
-//		whileloading: sm_whileloading,
-		onfinish: sm_onfinish,
-	  	volume: 80
-        }); 
-	}
-	catch(err) { debug('Cant create sound: ' + err.description ); }  
 
-    setupTrackDisplay(currentTrack);
-
-}
-
-function loadNextTrack() {
-
-    debug("loadNextTrack() called");
-
-    if(! openPlaylist[(currentTrack+1)]) { debug("This is the last track"); return false; }
-    if(playerObj[1]) { playerObj[1].destruct(); }
-
-    try { playerObj[1] = soundManager.createSound({
-      id: 'playerObj' + (currentTrack+1),
-      url: "songs/" + Base64.decode(openPlaylist[(currentTrack+1)]),
-        autoLoad: true,
-        autoPlay: false,
-        onload: sm_onload,
-        onplay: sm_onplay,
-        onresume: sm_onresume,
-        onpause: sm_onpause,
-        whileplaying: sm_whileplaying,
-//      whileloading: sm_whileloading,
-        onfinish: sm_onfinish,
-        volume: 0
-        }); 
+        audioPlayer.play().catch(err => debug('Play failed:', err));
     }
-    catch(err) { debug('Cant create sound: ' + err.description ); }  
 
+    // Pause current track
+    function pauseTrack() {
+        if (audioPlayer) {
+            audioPlayer.pause();
+        }
+        const songClock = document.querySelector('#song' + currentTrack + ' .clock');
+        if (songClock) {
+            songClock.classList.remove('green');
+            songClock.classList.add('grey');
+        }
+    }
 
-}
+    // Resume current track
+    function resumeTrack() {
+        if (audioPlayer) {
+            audioPlayer.play().catch(err => debug('Resume failed:', err));
+        }
+        const songClock = document.querySelector('#song' + currentTrack + ' .clock');
+        if (songClock) {
+            songClock.classList.remove('grey');
+            songClock.classList.add('green');
+        }
+    }
 
+    // Advance to next track
+    function nextTrack() {
+        if (typeof openPlaylist !== 'undefined' && openPlaylist[currentTrack + 1]) {
+            cleanTrackDisplay(currentTrack);
+            currentTrack++;
+            playTrack();
+            return true;
+        }
+        return false;
+    }
 
-function beginFadeTransition() {
+    // Preload the next track for gapless playback
+    function loadNextTrack() {
+        if (typeof openPlaylist === 'undefined' || !openPlaylist[currentTrack + 1]) {
+            debug('No next track to preload');
+            return;
+        }
 
-    debug("beginFadeTransition() called");
+        if (nextAudioPlayer) {
+            nextAudioPlayer.src = '';
+            nextAudioPlayer = null;
+        }
 
-    playerObj[1].play();
-    fadeOutSound(playerObj[0],-5); // fade a sound out
-    fadeInSound(playerObj[1],5); // fade a sound out
+        const filename = decodeURIComponent(atob(openPlaylist[currentTrack + 1]));
+        nextAudioPlayer = new Audio('songs/' + filename);
+        nextAudioPlayer.volume = 0;
+        nextAudioPlayer.preload = 'auto';
 
-}
+        // Set up event listeners for the next track
+        nextAudioPlayer.addEventListener('play', onPlay);
+        nextAudioPlayer.addEventListener('pause', onPause);
+        nextAudioPlayer.addEventListener('ended', onEnded);
+        nextAudioPlayer.addEventListener('timeupdate', onTimeUpdate);
+        nextAudioPlayer.addEventListener('error', onError);
 
-function fadeInSound(soundObj,amount) {
-  var vol = soundObj.volume;
-  if (vol == 100) return false;
-  soundObj.setVolume(Math.min(100,vol+amount));
-  setTimeout(function(){fadeInSound(soundObj,amount)},300);
-}
+        debug('Preloading next track');
+    }
 
-function fadeOutSound(soundObj,amount) {
-  var vol = soundObj.volume;
-  if (vol == 0) return false;
-  soundObj.setVolume(Math.max(0,vol+amount));
-  setTimeout(function(){fadeOutSound(soundObj,amount)},300);
-}
+    // Begin crossfade transition between tracks
+    function beginFadeTransition() {
+        if (!nextAudioPlayer || !audioPlayer) return;
 
+        debug('Beginning crossfade transition');
 
-function nextTrack() {
-	
-	if (openPlaylist[(currentTrack+1)]) {
-	    cleanTrackDisplay(currentTrack);
-		currentTrack++; 
-		playTrack(); 
-		return true;
-	} else { 
-		return false;
-	}
+        nextAudioPlayer.play().catch(err => debug('Next track play failed:', err));
 
-}
+        // Clear any existing fade interval
+        if (fadeInterval) {
+            clearInterval(fadeInterval);
+        }
 
-function cleanTrackDisplay(id) {
+        const fadeStep = 0.05;
+        const fadeIntervalMs = 150;
 
-    if (typeof(id)=='undefined') { return false; }
-	songClock = $$('#song'+id+' .clock');
-	songItem = $('song'+id);
+        fadeInterval = setInterval(function() {
+            // Fade out current
+            if (audioPlayer && audioPlayer.volume > fadeStep) {
+                audioPlayer.volume = Math.max(0, audioPlayer.volume - fadeStep);
+            }
 
-	songItem.removeClass('hilite');		
-	songClock.set('html','');
+            // Fade in next
+            if (nextAudioPlayer && nextAudioPlayer.volume < 0.8) {
+                nextAudioPlayer.volume = Math.min(0.8, nextAudioPlayer.volume + fadeStep);
+            }
 
-}
+            // Check if fade is complete
+            if ((!audioPlayer || audioPlayer.volume <= fadeStep) &&
+                (!nextAudioPlayer || nextAudioPlayer.volume >= 0.75)) {
+                clearInterval(fadeInterval);
+                fadeInterval = null;
 
-function setupTrackDisplay(id) {
+                // Clean up old player
+                if (audioPlayer) {
+                    audioPlayer.pause();
+                    audioPlayer.src = '';
+                }
 
-	songClock = $$('#song'+id+' .clock');
-	songItem = $('song'+id);
+                // Promote next to current
+                cleanTrackDisplay(currentTrack);
+                currentTrack++;
+                audioPlayer = nextAudioPlayer;
+                nextAudioPlayer = null;
+                setupTrackDisplay(currentTrack);
+            }
+        }, fadeIntervalMs);
+    }
 
-	songClock.removeClass('grey');
-	songClock.addClass('green');
-	songClock.set('html', '&mdash;');
-	songItem.addClass('hilite');
-				
-	var name = String($$('#song'+ id +' .name').get('html'));
-	name = name.replace('&amp;','&');
-	document.title = '\u25BA ' + name.trim() + " / " + pageTitle;		
+    // Check if crossfade is enabled (disabled on iOS due to audio restrictions)
+    function isFadeEnabled() {
+        const ua = navigator.userAgent;
+        const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+        return !isIOS;
+    }
 
-}
+    // Clean track display (remove highlight and clock)
+    function cleanTrackDisplay(trackIndex) {
+        if (trackIndex === null || trackIndex === undefined) return;
 
+        const songClock = document.querySelector('#song' + trackIndex + ' .clock');
+        const songItem = document.getElementById('song' + trackIndex);
 
+        if (songItem) {
+            songItem.classList.remove('hilite');
+        }
+        if (songClock) {
+            songClock.innerHTML = '';
+            songClock.classList.remove('green', 'grey');
+        }
+    }
 
-// auto advance on track load failure
-function sm_onload() { if(typeof(currentPlayerObj)!="undefined" && currentPlayerObj.readyState == 2) { nextTrack(); } }
-function sm_onplay() { playerStatus = "PLAYING"; }
-function sm_onpause() {	playerStatus = "PAUSED"; document.title = document.title.replace(/\u25BA/, '\u25FC'); }
-function sm_onresume() { playerStatus = "PLAYING"; document.title = document.title.replace(/\u25FC/, '\u25BA'); }
-function sm_onfinish() { nextTrack(); }
+    // Set up track display (highlight and initial clock)
+    function setupTrackDisplay(trackIndex) {
+        const songClock = document.querySelector('#song' + trackIndex + ' .clock');
+        const songItem = document.getElementById('song' + trackIndex);
+        const nameEl = document.querySelector('#song' + trackIndex + ' .name');
 
-function sm_whileplaying() {
-	
-    if (this.sID != "playerObj" + currentTrack) { return false; } // ignore timing events for players that are fading in
-	player_position = parseInt(this.position/1000);
-	player_duration = parseInt(this.duration/1000);	
-	
-	if ( player_position==currentPos ) { return false; }
-	else {
-		var string = '';
-		var sec = player_position % 60;
-		var min = (player_position - sec) / 60;
-		var min_formatted = min ? min+':' : '';
-		var sec_formatted = min ? (sec < 10 ? '0'+sec : sec) : sec;
-		string = min_formatted + sec_formatted;
-	
-		songClock = $$('#song'+currentTrack+' .clock');
-		songClock.set('html', string);
-		currentPos = player_position;
+        if (songClock) {
+            songClock.classList.remove('grey');
+            songClock.classList.add('green');
+            songClock.innerHTML = '&mdash;';
+        }
 
-        // debug ((player_duration - player_position) + "sec remaining");
-        if(is_fade_enabled() && (player_duration - player_position) == 10) { loadNextTrack(); }
-        else if(is_fade_enabled() && (player_duration - player_position) == 5) { beginFadeTransition(); } 
+        if (songItem) {
+            songItem.classList.add('hilite');
+        }
 
-	}
-		
-}
+        // Update document title with now playing
+        if (nameEl && typeof pageTitle !== 'undefined') {
+            let name = nameEl.textContent || nameEl.innerText;
+            name = name.trim().replace('&amp;', '&');
+            document.title = '\u25BA ' + name + ' / ' + pageTitle;
+        }
+    }
 
-function is_fade_enabled() {
-    
-    if (Browser.Platform.ios) { return false; }
-    else { return true; }
+    // Event handlers
+    function onPlay() {
+        playerStatus = 'PLAYING';
+        document.title = document.title.replace(/\u25FC/, '\u25BA');
+    }
 
-}
+    function onPause() {
+        playerStatus = 'PAUSED';
+        document.title = document.title.replace(/\u25BA/, '\u25FC');
+    }
 
-//function sm_whileloading() {
-	
-	//debug( this.bytesLoaded + " loaded, " + this.bytesTotal + " total...");
-//	percent_loaded = (Math.round((this.bytesLoaded / this.bytesTotal) * 100 ) * 100 / 100) + '%'; // dumb JS way to get decimals XX.YY
-//	e = new Effect.Morph( $('player-progress-loading'), { style: { width:percent_loaded }, duration: '0.2' }); 
-			
-//}
+    function onEnded() {
+        debug('Track ended');
+        nextTrack();
+    }
+
+    function onError(e) {
+        debug('Audio error:', e);
+        nextTrack();
+    }
+
+    function onTimeUpdate() {
+        if (!audioPlayer) return;
+
+        const position = Math.floor(audioPlayer.currentTime);
+        const duration = Math.floor(audioPlayer.duration) || 0;
+
+        // Skip if position hasn't changed
+        if (position === currentPos) return;
+        currentPos = position;
+
+        // Update clock display
+        const songClock = document.querySelector('#song' + currentTrack + ' .clock');
+        if (songClock) {
+            const sec = position % 60;
+            const min = Math.floor(position / 60);
+            const minFormatted = min ? min + ':' : '';
+            const secFormatted = min ? (sec < 10 ? '0' + sec : sec) : sec;
+            songClock.innerHTML = minFormatted + secFormatted;
+        }
+
+        // Handle crossfade preloading
+        if (isFadeEnabled() && duration > 0) {
+            const remaining = duration - position;
+            if (remaining === 10) {
+                loadNextTrack();
+            } else if (remaining === 5) {
+                beginFadeTransition();
+            }
+        }
+    }
+
+    // Expose functions globally for inline event handlers
+    window.togglePlayback = togglePlayback;
+    window.event_init = eventInit;
+
+    // Auto-initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', eventInit);
+    } else {
+        eventInit();
+    }
+})();

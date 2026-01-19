@@ -16,7 +16,7 @@ input.save{margin-left:80px;}
 label{display:block;float:left;font-weight:700;width:80px;}
 
 #codebox{height:150px;margin:5px 10px 0 0;width:420px;}
-.ajax_status {font-weight:700;color:#000;background:#ff9;position:absolute;top:15px;left:420px;font-size:25px;text-align:center;}
+.ajax_status {font-weight:700;color:#000;background:#ff9;position:absolute;top:15px;left:420px;font-size:25px;text-align:center;transition:opacity 2s ease;}
 .banner{color:#fff;height:60px;left:0;padding:0 20px;position:fixed;top:0;width:100%;z-index:5;background:#111;}
 .banner a{color:#fff;}
 .content{margin:80px 0 0;padding:0 20px;}

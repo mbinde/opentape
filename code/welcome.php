@@ -1,101 +1,126 @@
 <?php
+/**
+ * Opentape - Welcome / Initial Password Setup
+ */
 
-	include("opentape_common.php");
+require_once("opentape_common.php");
 
-	check_cookie();
+send_security_headers();
+init_session();
 
-	if(is_password_set()) {
-		header("Location: " . $REL_PATH . "code/login.php");
-		exit();
-	}
-	
-?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-	<head>
-		<title>Welcome - Set Password / Opentape</title>
-		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-		<meta name="viewport" content="width = 680" />
-		<link rel="stylesheet" type="text/css" href="<?php echo $REL_PATH; ?>res/style.css" />
-	</head>
-	<body>
-		<div class="container">
-			<div class="banner">
-				<h1>OPENTAPE</h1>
-			    
-			    <div class="ajax_status"></div>
-			</div>	
+// If password already set, redirect to login
+if (is_password_set()) {
+    header("Location: " . $REL_PATH . "code/login.php");
+    exit();
+}
+
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Welcome - Set Password / Opentape</title>
+    <link rel="stylesheet" href="<?php echo $REL_PATH; ?>res/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="banner">
+            <h1>OPENTAPE</h1>
+            <div class="ajax_status"></div>
+        </div>
 
         <div class="content">
             <div class="section">
                 <h2>Welcome!</h2>
-            </div> 
+            </div>
+
             <div class="section" id="setpassword">
                 <h2>Set an admin password on your mixtape</h2>
-                <div class="ajax_status">&nbsp;</div>
-				<p>Enter the new password twice:</p>
-				<form name="password_form" onsubmit="return false">
-					<input type="password" id="password1" maxlength="255" size="20" /><br />
-					<input type="password" id="password2" maxlength="255" size="20" /><br />
-					<input type="button" class="small_button" id="password_button" value="create password" />
-				</form>
+                <p>Enter the new password twice:</p>
+                <form name="password_form" id="password_form">
+                    <input type="password" id="password1" maxlength="255" size="20" placeholder="Password" autofocus><br>
+                    <input type="password" id="password2" maxlength="255" size="20" placeholder="Confirm password"><br>
+                    <input type="button" class="small_button" id="password_button" value="Create Password">
+                </form>
             </div>
-			<div class="section" style="display:none;" id="uploadnext">
-				<a style="font-size: 24px; font-weight: bold;" href="<?php echo $REL_PATH; ?>code/edit.php">Now, add songs!</a>
+
+            <div class="section" style="display:none;" id="uploadnext">
+                <a style="font-size: 24px; font-weight: bold;" href="<?php echo $REL_PATH; ?>code/edit.php">Now, add songs!</a>
             </div>
+
             <div class="footer">
-			<?php get_version_banner(); ?>
-            </div>	
+                <?php get_version_banner(); ?>
+            </div>
         </div>
-	</div>
-	
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/mootools-core-1.3-yc.js"></script>
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/mootools-more-1.3-yc.js"></script>
-	<script type="text/javascript" src="<?php echo $REL_PATH; ?>res/statusfader.js"></script>
+    </div>
 
-	<script type="text/javascript">
-	
-	var fader = new StatusFader();
-	var userFader = new StatusFader($('status'));
-	
-	var ajax = new Request({
-		url: '<?php echo $REL_PATH; ?>code/ajax.php',
-		method: 'post',
-		autoCancel: 'true',
-		debug: "true",
-		onRequest: function() {
-			fader.set('progress');
-			$(document.body).setStyle('cursor','wait');
-		},
-		onSuccess: function(resp) {
-		
-			var resp = JSON.decode(resp);
-						
-			if (resp['status']) {
-			
-				fader.flash('Password created!', '#008000');
-				$('setpassword').setStyle('display', 'none');
-				$('uploadnext').setStyle('display', '');
+    <script src="<?php echo $REL_PATH; ?>res/statusfader.js"></script>
+    <script>
+    (function() {
+        'use strict';
 
-			} else {
-				fader.set('failure');
-			}
-			
-			$(document.body).setStyle('cursor','default');
-						
-		},
-		onFailure: function() {
-			fader.set('failure');
-			$(document.body).setStyle('cursor','default');
-		}
-	});
-	
-	if($('password1') && $('password2')) {
-		$('password_button').addEvent('click',function(){
-			ajax.send('command=create_password&args='+JSON.encode({password1:$('password1').value,password2:$('password2').value}));
-		});
-	}
+        const AJAX_URL = <?php echo json_encode($REL_PATH . 'code/ajax.php'); ?>;
+        const fader = new StatusFader();
 
-	</script>	
+        const passwordButton = document.getElementById('password_button');
+        const password1 = document.getElementById('password1');
+        const password2 = document.getElementById('password2');
+        const setPasswordSection = document.getElementById('setpassword');
+        const uploadNextSection = document.getElementById('uploadnext');
 
-	</body>
+        if (passwordButton && password1 && password2) {
+            passwordButton.addEventListener('click', function() {
+                const p1 = password1.value;
+                const p2 = password2.value;
+
+                if (!p1 || !p2) {
+                    fader.flash('Please enter password twice', '#ff0000');
+                    return;
+                }
+
+                if (p1 !== p2) {
+                    fader.flash('Passwords do not match', '#ff0000');
+                    return;
+                }
+
+                fader.set('progress');
+                document.body.style.cursor = 'wait';
+
+                const formData = new FormData();
+                formData.append('command', 'create_password');
+                formData.append('args', JSON.stringify({ password1: p1, password2: p2 }));
+
+                fetch(AJAX_URL, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    document.body.style.cursor = 'default';
+
+                    if (data.status) {
+                        fader.flash('Password created!', '#008000');
+                        setPasswordSection.style.display = 'none';
+                        uploadNextSection.style.display = '';
+                    } else {
+                        fader.set('failure');
+                    }
+                })
+                .catch(err => {
+                    document.body.style.cursor = 'default';
+                    fader.set('failure');
+                    console.error('Error:', err);
+                });
+            });
+
+            // Allow Enter key to submit
+            password2.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    passwordButton.click();
+                }
+            });
+        }
+    })();
+    </script>
+</body>
 </html>

@@ -1,29 +1,77 @@
-Welcome to Opentape. We are liberating taste.
+# Opentape
 
-INSTALL
--------
+A simple, self-hosted web application for creating and sharing mixtapes.
 
-1. Download this repository as a zip file
-2. Upload the unzipped files and folders into _a_folder_ on your website
-3. Open `http://yourwebsite.com/a_folder/`
-4. Create a password when requested
-5. Upload songs
+## Requirements
 
-You may receive a warning about the `songs/` and `settings/` folders not being writeable. Check with your webhost about how to make them writeable by the web server. This is required for Opentape to work.
+- PHP 8.0 or higher
+- Web server (Apache, nginx, etc.)
+- Writable `songs/` and `settings/` directories
 
-CHANGES IN THIS RELEASE
------------------------
+## Installation
 
-0.13 – Housekeeping changes - no flash, updates to php id3 libs, other minor fixes. works on php7/8 again.
+1. Upload all files and folders to a directory on your web server
+2. Ensure `songs/` and `settings/` directories are writable by the web server
+3. Visit your installation URL (e.g., `https://yoursite.com/opentape/`)
+4. Create an admin password when prompted
+5. Start uploading MP3s!
 
-LICENSING
----------
+## Features
 
-Opentape is (as of version 0.12) licensed under GNU Affero GPL v3.  Please see the LICENSE file for the full license.
+- Upload and organize MP3 files into playlists
+- Automatic ID3 tag reading for artist/title info
+- Drag-and-drop reordering
+- Customizable banner, caption, and color
+- Crossfade between tracks
+- RSS feed for your mixtape
+- No database required - all data stored in JSON files
 
-Opentape contains code from other projects, that code is licensed as follows:
+## Directory Structure
 
-* mootools - MIT License: http://www.opensource.org/licenses/mit-license.php
-* getid3 - GNU GPL: http://getid3.sourceforge.net/source/license.txt
-* Services_JSON - BSD License: http://www.opensource.org/licenses/bsd-license.php
-* Soundmanager 2 - BSD License: http://www.schillmania.com/projects/soundmanager2/license.txt
+```
+opentape/
+├── index.php          # Entry point
+├── code/              # PHP application files
+│   ├── getid3/        # ID3 tag parsing library
+│   └── *.php          # Application logic
+├── res/               # CSS and JavaScript
+├── settings/          # Configuration storage (auto-created)
+└── songs/             # Uploaded MP3 files
+```
+
+## Security Notes
+
+- Uses PHP's native `password_hash()` for secure password storage
+- CSRF protection on all admin actions
+- Session management with secure cookie settings
+- All user input is properly sanitized
+
+## Changelog
+
+### 1.0.0
+
+Complete modernization for PHP 8.x and modern browsers:
+
+- Replaced MooTools with vanilla JavaScript
+- Replaced SoundManager 2 with native HTML5 Audio
+- Updated to latest getID3 library
+- Switched from serialized PHP to JSON file storage
+- Added CSRF protection
+- Upgraded password hashing from MD5 to bcrypt
+- Native PHP session management
+- HTML5 doctype and modern markup
+- Removed dead opentape.fm integration
+
+### 0.13
+
+- Removed Flash support
+- Updates to PHP ID3 libs
+- Minor fixes for PHP 7/8
+
+## License
+
+Opentape is licensed under the GNU Affero GPL v3. See the LICENSE file for details.
+
+### Third-party code
+
+- getID3 - GNU GPL: https://github.com/JamesHeinrich/getID3
