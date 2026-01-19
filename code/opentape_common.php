@@ -555,7 +555,7 @@ function send_security_headers(): void {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self' https://api.github.com; script-src 'self'; frame-ancestors 'self'; connect-src 'self' https://api.github.com");
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self' https://api.github.com; script-src 'self' 'unsafe-inline'; frame-ancestors 'self'; connect-src 'self' https://api.github.com");
 }
 
 // ============================================================================
