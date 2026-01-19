@@ -7,7 +7,7 @@
     'use strict';
 
     // Player state
-    let currentTrack = null;
+    let currentTrack = -1;
     let playerStatus = 'STOPPED';
     let currentPos = -1;
     let audioPlayer = null;
@@ -53,7 +53,7 @@
     function togglePlayback(id) {
         const trackIndex = parseInt(id.replace(/song/, ''), 10);
 
-        if (trackIndex === currentTrack && currentTrack !== null) {
+        if (trackIndex === currentTrack && currentTrack >= 0) {
             // Same track - toggle play/pause
             if (playerStatus === 'PAUSED') {
                 resumeTrack();
@@ -228,7 +228,7 @@
 
     // Clean track display (remove highlight and clock)
     function cleanTrackDisplay(trackIndex) {
-        if (trackIndex === null || trackIndex === undefined) return;
+        if (trackIndex < 0 || trackIndex === undefined) return;
 
         const songClock = document.querySelector('#song' + trackIndex + ' .clock');
         const songItem = document.getElementById('song' + trackIndex);
