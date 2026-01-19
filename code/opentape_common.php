@@ -133,25 +133,93 @@ function csrf_field(): string {
 // PASSWORD MANAGEMENT (using password_hash/password_verify)
 // ============================================================================
 
+// Legacy salt used by original Opentape (pre-2024)
+define('LEGACY_PASSWORD_SALT', 'MIXTAPESFORLIFE');
+
 /**
- * Check if password has been set up
+ * Check if password has been set up (new JSON or legacy PHP format)
  */
 function is_password_set(): bool {
+    // Check new format first
     $password_data = read_json_file('.opentape_password');
-    return is_array($password_data) && !empty($password_data['hash']);
+    if (is_array($password_data) && !empty($password_data['hash'])) {
+        return true;
+    }
+
+    // Check legacy format
+    $legacy_data = get_legacy_password_struct();
+    return is_array($legacy_data) && !empty($legacy_data['hash']);
 }
 
 /**
- * Verify a password against stored hash
+ * Read legacy password structure from old .opentape_password.php file
  */
-function check_password(string $password): bool {
-    $password_data = read_json_file('.opentape_password');
+function get_legacy_password_struct(): ?array {
+    $php_path = SETTINGS_PATH . '.opentape_password.php';
 
-    if (!is_array($password_data) || empty($password_data['hash'])) {
-        return false;
+    if (file_exists($php_path) && is_readable($php_path)) {
+        // Include the file to get $password_struct_data variable
+        include($php_path);
+        if (isset($password_struct_data)) {
+            $data = @unserialize(base64_decode($password_struct_data));
+            if (is_array($data) && !empty($data['hash'])) {
+                return $data;
+            }
+        }
     }
 
-    return password_verify($password, $password_data['hash']);
+    // Also check even older .array format
+    $array_path = SETTINGS_PATH . '.opentape_password.array';
+    if (file_exists($array_path) && is_readable($array_path)) {
+        $data = @unserialize(file_get_contents($array_path));
+        if (is_array($data) && !empty($data['hash'])) {
+            return $data;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Verify a password against stored hash (supports legacy MD5 with auto-upgrade)
+ */
+function check_password(string $password): bool {
+    // Try new format first
+    $password_data = read_json_file('.opentape_password');
+
+    if (is_array($password_data) && !empty($password_data['hash'])) {
+        return password_verify($password, $password_data['hash']);
+    }
+
+    // Try legacy format
+    $legacy_data = get_legacy_password_struct();
+    if (is_array($legacy_data) && !empty($legacy_data['hash'])) {
+        // Legacy used: md5(SALT . password)
+        $legacy_hash = md5(LEGACY_PASSWORD_SALT . $password);
+
+        if (hash_equals($legacy_data['hash'], $legacy_hash)) {
+            // Password correct - upgrade to bcrypt
+            upgrade_legacy_password($password);
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Upgrade a legacy MD5 password to bcrypt
+ */
+function upgrade_legacy_password(string $password): bool {
+    // Save with new secure hash
+    $result = set_password($password);
+
+    if ($result) {
+        // Optionally remove legacy files (keep them for now as backup)
+        error_log("Opentape: Upgraded legacy MD5 password to bcrypt");
+    }
+
+    return $result;
 }
 
 /**
@@ -182,6 +250,35 @@ function read_json_file(string $filename_base): array {
     }
 
     return [];
+}
+
+/**
+ * Read legacy PHP-serialized data from old .opentape_*.php or .array files
+ * Returns the data array, or null if not found
+ */
+function read_legacy_php_file(string $filename_base, string $var_name): ?array {
+    // Try .php format first (base64-encoded serialized data in a PHP variable)
+    $php_path = SETTINGS_PATH . $filename_base . '.php';
+    if (file_exists($php_path) && is_readable($php_path)) {
+        include($php_path);
+        if (isset($$var_name)) {
+            $data = @unserialize(base64_decode($$var_name));
+            if (is_array($data)) {
+                return $data;
+            }
+        }
+    }
+
+    // Try older .array format (plain serialized data)
+    $array_path = SETTINGS_PATH . $filename_base . '.array';
+    if (file_exists($array_path) && is_readable($array_path)) {
+        $data = @unserialize(file_get_contents($array_path));
+        if (is_array($data)) {
+            return $data;
+        }
+    }
+
+    return null;
 }
 
 /**
@@ -245,10 +342,25 @@ function validate_song_key(string $song_key): bool {
 }
 
 /**
- * Get the songlist structure
+ * Get the songlist structure (supports legacy PHP format with auto-upgrade)
  */
 function get_songlist_struct(): array {
-    return read_json_file('.opentape_songlist');
+    // Try new JSON format first
+    $data = read_json_file('.opentape_songlist');
+    if (!empty($data)) {
+        return $data;
+    }
+
+    // Try legacy PHP format
+    $legacy_data = read_legacy_php_file('.opentape_songlist', 'songlist_struct_data');
+    if (is_array($legacy_data) && !empty($legacy_data)) {
+        // Auto-upgrade to JSON format
+        error_log("Opentape: Upgrading legacy songlist to JSON format");
+        write_json_file('.opentape_songlist', $legacy_data);
+        return $legacy_data;
+    }
+
+    return [];
 }
 
 /**
@@ -373,7 +485,7 @@ function scan_songs(): array {
     closedir($dir_handle);
 
     if (!empty($songlist_new_items)) {
-        $songlist_struct = array_merge($songlist_new_items, $songlist_struct);
+        $songlist_struct = array_merge($songlist_struct, $songlist_new_items);
         write_songlist_struct($songlist_struct);
     }
 
@@ -543,10 +655,25 @@ function delete_song(string $song_key): bool {
 // ============================================================================
 
 /**
- * Get user preferences
+ * Get user preferences (supports legacy PHP format with auto-upgrade)
  */
 function get_opentape_prefs(): array {
-    return read_json_file('.opentape_prefs');
+    // Try new JSON format first
+    $data = read_json_file('.opentape_prefs');
+    if (!empty($data)) {
+        return $data;
+    }
+
+    // Try legacy PHP format
+    $legacy_data = read_legacy_php_file('.opentape_prefs', 'prefs_struct_data');
+    if (is_array($legacy_data) && !empty($legacy_data)) {
+        // Auto-upgrade to JSON format
+        error_log("Opentape: Upgrading legacy prefs to JSON format");
+        write_json_file('.opentape_prefs', $legacy_data);
+        return $legacy_data;
+    }
+
+    return [];
 }
 
 /**
