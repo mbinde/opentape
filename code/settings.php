@@ -46,10 +46,6 @@ $csrf_token = get_csrf_token();
                     <label>
                         <input type="checkbox" name="display_mp3" id="display_mp3" <?php if (!empty($prefs_struct['display_mp3']) && $prefs_struct['display_mp3'] == 1) echo 'checked'; ?>>
                         Display direct MP3 links on mixtape
-                    </label><br>
-                    <label>
-                        <input type="checkbox" name="use_filename" id="use_filename" <?php if (!empty($prefs_struct['use_filename']) && $prefs_struct['use_filename'] == 1) echo 'checked'; ?>>
-                        Use filename as track title (ignore ID3 tags)
                     </label>
                 </form>
             </div>
@@ -150,18 +146,6 @@ $csrf_token = get_csrf_token();
         if (displayMp3) {
             displayMp3.addEventListener('change', function() {
                 ajaxPost('set_option', { display_mp3: this.checked });
-            });
-        }
-
-        // Use filename checkbox - also triggers rescan
-        const useFilename = document.getElementById('use_filename');
-        if (useFilename) {
-            useFilename.addEventListener('change', function() {
-                ajaxPost('set_option', { use_filename: this.checked })
-                    .then(() => ajaxPost('rescan_songs', {}))
-                    .then(() => {
-                        fader.flash('Songs will be rescanned', '#008000');
-                    });
             });
         }
 

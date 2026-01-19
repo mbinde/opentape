@@ -163,7 +163,12 @@ $csrf_token = get_csrf_token();
             <div class="section">
                 <h2>Rearrange Songs</h2>
                 <p><strong>Drag &amp; drop</strong> to change the order of your mixtape, it will save automatically.</p>
-                <p><input type="button" class="small_button" id="rescan_button" value="Rescan Songs"> Re-read song info from files</p>
+                <p>
+                    <label>
+                        <input type="checkbox" id="use_filename" <?php if (!empty($prefs_struct['use_filename']) && $prefs_struct['use_filename'] == 1) echo 'checked'; ?>>
+                        Use filenames instead of ID3 tags
+                    </label>
+                </p>
                 <ul class="sortie" id="sortable_list">
 <?php foreach ($songlist_struct as $pos => $row):
     if (!is_file(SONGS_PATH . $row['filename'])) {
@@ -282,21 +287,19 @@ $csrf_token = get_csrf_token();
         }
 
         // Rescan songs
-        const rescanButton = document.getElementById('rescan_button');
-        if (rescanButton) {
-            rescanButton.addEventListener('click', function() {
-                if (confirm('This will re-read all song info from files. Any manual edits to artist/title will be lost. Continue?')) {
-                    rescanButton.disabled = true;
-                    rescanButton.value = 'Rescanning...';
-                    ajaxPost('rescan_songs', {})
-                        .then(() => {
-                            location.reload();
-                        })
-                        .catch(() => {
-                            rescanButton.disabled = false;
-                            rescanButton.value = 'Rescan Songs';
-                        });
-                }
+        // Use filename toggle - save setting and rescan
+        const useFilename = document.getElementById('use_filename');
+        if (useFilename) {
+            useFilename.addEventListener('change', function() {
+                useFilename.disabled = true;
+                ajaxPost('set_option', { use_filename: this.checked })
+                    .then(() => ajaxPost('rescan_songs', {}))
+                    .then(() => {
+                        location.reload();
+                    })
+                    .catch(() => {
+                        useFilename.disabled = false;
+                    });
             });
         }
 
