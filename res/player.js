@@ -84,14 +84,10 @@
             audioPlayer = null;
         }
 
-        // If we have a preloaded next track, use it
+        // Clear any preloaded track (it's for a different song)
         if (nextAudioPlayer) {
-            audioPlayer = nextAudioPlayer;
+            nextAudioPlayer.src = '';
             nextAudioPlayer = null;
-            setupTrackDisplay(currentTrack);
-            audioPlayer.volume = 0.8;
-            audioPlayer.play().catch(err => debug('Play failed:', err));
-            return;
         }
 
         // Create new audio player
