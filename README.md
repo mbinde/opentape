@@ -1,10 +1,10 @@
 # Opentape
 
-A simple, self-hosted web application for creating and sharing mixtapes.
+A simple, self-hosted web application for creating and sharing mixtapes. Modernized for PHP 8.x with HTML5 audio and vanilla JavaScript (no Flash or jQuery required).
 
 ## Requirements
 
-- PHP 8.0 or higher
+- PHP 8.0 or higher (tested on PHP 8.5)
 - Web server (Apache, nginx, etc.)
 - Writable `songs/` and `settings/` directories
 
