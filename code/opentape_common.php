@@ -34,9 +34,13 @@ if (preg_match('/code\/?$/', $cwd) || preg_match('|' . SETTINGS_PATH . '?$|', $c
 // Auto-create userdata directories if they don't exist
 if (!is_dir('userdata')) {
     @mkdir('userdata', 0755, true);
+    // Prevent directory listing
+    @file_put_contents('userdata/index.php', "<?php http_response_code(403); exit('Access denied');");
 }
 if (!is_dir(SETTINGS_PATH)) {
     @mkdir(SETTINGS_PATH, 0755, true);
+    // Protect settings from direct web access
+    @file_put_contents(SETTINGS_PATH . '.htaccess', "# Deny direct access\n<IfModule mod_authz_core.c>\nRequire all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\nOrder deny,allow\nDeny from all\n</IfModule>\n");
 }
 if (!is_dir(SONGS_PATH)) {
     @mkdir(SONGS_PATH, 0755, true);

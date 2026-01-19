@@ -1,15 +1,9 @@
-# User data (keep structure, ignore contents)
-userdata/songs/*
-userdata/settings/*
-!userdata/songs/.gitkeep
-!userdata/settings/.gitkeep
-!userdata/settings/.htaccess
+# User data (auto-created on first run)
+userdata/
 
 # Legacy paths (for old installs)
-songs/*.mp3
-settings/*.json
-settings/*.array
-settings/*.php
+songs/
+settings/
 
 # Server config
 .htaccess
