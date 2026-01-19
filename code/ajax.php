@@ -139,8 +139,8 @@ function handle_rename(array $args): void {
     $artist = htmlspecialchars($_POST['artist'] ?? '', ENT_QUOTES, 'UTF-8');
     $title = htmlspecialchars($_POST['title'] ?? '', ENT_QUOTES, 'UTF-8');
 
-    if (empty($song_key)) {
-        echo json_encode(['status' => false, 'command' => 'rename', 'error' => 'Missing song key']);
+    if (!validate_song_key($song_key)) {
+        echo json_encode(['status' => false, 'command' => 'rename', 'error' => 'Invalid song key']);
         return;
     }
 
@@ -181,8 +181,8 @@ function handle_reorder(array $args): void {
 function handle_delete(): void {
     $song_key = $_POST['args'] ?? '';
 
-    if (empty($song_key)) {
-        echo json_encode(['status' => false, 'command' => 'delete', 'error' => 'Missing song key']);
+    if (!validate_song_key($song_key)) {
+        echo json_encode(['status' => false, 'command' => 'delete', 'error' => 'Invalid song key']);
         return;
     }
 

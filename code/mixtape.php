@@ -23,11 +23,11 @@ $header_bg_color = !empty($prefs_struct['color'])
     : DEFAULT_COLOR;
 
 $banner_header_text = !empty($prefs_struct['banner'])
-    ? $prefs_struct['banner']
+    ? htmlspecialchars($prefs_struct['banner'], ENT_QUOTES, 'UTF-8')
     : "OPENTAPE";
 
 $banner_caption_text = !empty($prefs_struct['caption'])
-    ? $prefs_struct['caption']
+    ? htmlspecialchars($prefs_struct['caption'], ENT_QUOTES, 'UTF-8')
     : count($songlist_struct) . " songs, " . get_total_runtime_string();
 
 ?><!DOCTYPE html>

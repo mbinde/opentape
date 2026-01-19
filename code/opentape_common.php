@@ -138,7 +138,6 @@ function is_password_set(): bool {
 
 /**
  * Verify a password against stored hash
- * Also handles migration from old MD5 hashes
  */
 function check_password(string $password): bool {
     $password_data = read_json_file('.opentape_password');
@@ -147,18 +146,6 @@ function check_password(string $password): bool {
         return false;
     }
 
-    // Check if this is an old MD5 hash (32 chars) or new password_hash (60+ chars)
-    if (strlen($password_data['hash']) === 32) {
-        // Old MD5 format: md5("MIXTAPESFORLIFE" . $password)
-        if (md5("MIXTAPESFORLIFE" . $password) === $password_data['hash']) {
-            // Migrate to new hash format on successful login
-            set_password($password);
-            return true;
-        }
-        return false;
-    }
-
-    // New password_hash format
     return password_verify($password, $password_data['hash']);
 }
 
@@ -174,67 +161,22 @@ function set_password(string $password): bool {
 }
 
 // ============================================================================
-// JSON FILE STORAGE (replacing serialized PHP)
+// JSON FILE STORAGE
 // ============================================================================
 
 /**
  * Read data from a JSON file in settings directory
- * Handles migration from old serialized PHP format
  */
 function read_json_file(string $filename_base): array {
     $json_path = SETTINGS_PATH . $filename_base . '.json';
-    $php_path = SETTINGS_PATH . $filename_base . '.php';
-    $array_path = SETTINGS_PATH . $filename_base . '.array';
 
-    // Try JSON file first (new format)
     if (file_exists($json_path) && is_readable($json_path)) {
         $content = file_get_contents($json_path);
         $data = json_decode($content, true);
         return is_array($data) ? $data : [];
     }
 
-    // Try old PHP format and migrate
-    if (file_exists($php_path) && is_readable($php_path)) {
-        $data = migrate_php_storage($php_path, $filename_base);
-        if ($data !== null) {
-            return $data;
-        }
-    }
-
-    // Try old .array format and migrate
-    if (file_exists($array_path) && is_readable($array_path)) {
-        $content = file_get_contents($array_path);
-        $data = @unserialize($content);
-        if (is_array($data)) {
-            // Migrate to JSON
-            write_json_file($filename_base, $data);
-            return $data;
-        }
-    }
-
     return [];
-}
-
-/**
- * Migrate old PHP serialized storage to JSON
- */
-function migrate_php_storage(string $php_path, string $filename_base): ?array {
-    $content = file_get_contents($php_path);
-
-    // Extract the base64-encoded serialized data
-    // Format: <?php $varname_data = "base64string"; ? >
-    if (preg_match('/\$\w+_data\s*=\s*"([^"]+)"/', $content, $matches)) {
-        $decoded = base64_decode($matches[1]);
-        $data = @unserialize($decoded);
-
-        if (is_array($data)) {
-            // Write to new JSON format
-            write_json_file($filename_base, $data);
-            return $data;
-        }
-    }
-
-    return null;
 }
 
 /**
@@ -250,12 +192,52 @@ function write_json_file(string $filename_base, array $data): bool {
     }
 
     $bytes = file_put_contents($json_path, $json, LOCK_EX);
+
+    // Set restrictive permissions for sensitive files (password, etc.)
+    if ($bytes !== false && str_starts_with($filename_base, '.opentape_password')) {
+        chmod($json_path, 0600);
+    }
+
     return $bytes !== false;
 }
 
 // ============================================================================
 // SONGLIST MANAGEMENT
 // ============================================================================
+
+/**
+ * Validate a song key
+ * Returns true if the key is valid base64, decodes to a reasonable filename,
+ * and exists in the current songlist
+ */
+function validate_song_key(string $song_key): bool {
+    // Must not be empty
+    if (empty($song_key)) {
+        return false;
+    }
+
+    // Must be valid base64
+    if (!preg_match('/^[A-Za-z0-9+\/=]+$/', $song_key)) {
+        return false;
+    }
+
+    // Decode and check for path traversal
+    $decoded = base64_decode($song_key, true);
+    if ($decoded === false) {
+        return false;
+    }
+
+    $filename = rawurldecode($decoded);
+
+    // Check for path traversal attempts
+    if (strpos($filename, '..') !== false || strpos($filename, '/') !== false || strpos($filename, '\\') !== false) {
+        return false;
+    }
+
+    // Must exist in current songlist
+    $songlist = get_songlist_struct();
+    return isset($songlist[$song_key]);
+}
 
 /**
  * Get the songlist structure
@@ -568,5 +550,6 @@ function send_security_headers(): void {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
     header('Referrer-Policy: strict-origin-when-cross-origin');
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self'; script-src 'self'; frame-ancestors 'self'");
 }
 

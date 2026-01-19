@@ -15,21 +15,90 @@ if (!is_logged_in()) {
 
 // Handle file upload
 $upload_success = null;
-if (isset($_FILES['file'])) {
-    $filename = basename($_FILES['file']['name']);
+$upload_error = '';
 
-    if (!preg_match('/\.mp3$/i', $filename)) {
-        $upload_success = -1; // Not an MP3
+if (isset($_FILES['file']) && $_FILES['file']['error'] !== UPLOAD_ERR_NO_FILE) {
+    // Validate CSRF token
+    if (!validate_csrf_token($_POST['csrf_token'] ?? null)) {
+        $upload_success = 0;
+        $upload_error = 'Invalid request';
+    } elseif ($_FILES['file']['error'] !== UPLOAD_ERR_OK) {
+        $upload_success = 0;
+        $upload_error = 'Upload error';
     } else {
-        $upload_dir = SONGS_PATH;
-        $upload_file = $upload_dir . $filename;
+        $upload_result = validate_and_save_upload($_FILES['file']);
+        $upload_success = $upload_result['success'] ? 1 : ($upload_result['error'] === 'Not an MP3' ? -1 : 0);
+        $upload_error = $upload_result['error'] ?? '';
+    }
+}
 
-        if (move_uploaded_file($_FILES['file']['tmp_name'], $upload_file)) {
-            $upload_success = 1;
-        } else {
-            $upload_success = 0;
+/**
+ * Validate and save an uploaded MP3 file
+ */
+function validate_and_save_upload(array $file): array {
+    $original_name = $file['name'];
+    $tmp_path = $file['tmp_name'];
+
+    // Check extension
+    if (!preg_match('/\.mp3$/i', $original_name)) {
+        return ['success' => false, 'error' => 'Not an MP3'];
+    }
+
+    // Check for double extensions (e.g., file.php.mp3)
+    if (preg_match('/\.[^.]+\.mp3$/i', $original_name)) {
+        return ['success' => false, 'error' => 'Invalid filename'];
+    }
+
+    // Validate file content - check MP3 magic bytes
+    $handle = fopen($tmp_path, 'rb');
+    if (!$handle) {
+        return ['success' => false, 'error' => 'Cannot read file'];
+    }
+    $header = fread($handle, 10);
+    fclose($handle);
+
+    $is_valid_mp3 = false;
+
+    // Check for ID3v2 tag (starts with "ID3")
+    if (substr($header, 0, 3) === 'ID3') {
+        $is_valid_mp3 = true;
+    }
+    // Check for MP3 frame sync (0xFF followed by 0xE0-0xFF for various MPEG versions/layers)
+    elseif (strlen($header) >= 2) {
+        $byte1 = ord($header[0]);
+        $byte2 = ord($header[1]);
+        if ($byte1 === 0xFF && ($byte2 & 0xE0) === 0xE0) {
+            $is_valid_mp3 = true;
         }
     }
+
+    if (!$is_valid_mp3) {
+        return ['success' => false, 'error' => 'Not a valid MP3'];
+    }
+
+    // Sanitize filename - keep only safe characters
+    $basename = pathinfo($original_name, PATHINFO_FILENAME);
+    $basename = preg_replace('/[^a-zA-Z0-9_\-\. ]/', '', $basename);
+    $basename = trim($basename);
+    if (empty($basename)) {
+        $basename = 'upload_' . time();
+    }
+
+    // Ensure unique filename
+    $filename = $basename . '.mp3';
+    $counter = 1;
+    while (file_exists(SONGS_PATH . $filename)) {
+        $filename = $basename . '_' . $counter . '.mp3';
+        $counter++;
+    }
+
+    $dest_path = SONGS_PATH . $filename;
+
+    if (move_uploaded_file($tmp_path, $dest_path)) {
+        return ['success' => true, 'filename' => $filename];
+    }
+
+    return ['success' => false, 'error' => 'Failed to save file'];
 }
 
 $songlist_struct = scan_songs();
@@ -364,7 +433,7 @@ $csrf_token = get_csrf_token();
 <?php if ($upload_success === 1): ?>
         fader.stay('Upload OK!', '#008000');
 <?php elseif ($upload_success === 0): ?>
-        fader.stay('Upload failed.', '#ff0000');
+        fader.stay(<?php echo json_encode($upload_error ?: 'Upload failed.'); ?>, '#ff0000');
 <?php elseif ($upload_success === -1): ?>
         fader.stay('MP3s only!', '#ff0000');
 <?php endif; ?>
