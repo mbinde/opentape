@@ -281,6 +281,8 @@ function scan_songs(): array {
     $getID3 = new getID3();
     $songlist_struct = get_songlist_struct();
     $songlist_new_items = [];
+    $prefs = get_opentape_prefs();
+    $use_filename = !empty($prefs['use_filename']);
 
     while (false !== ($file = readdir($dir_handle))) {
         if ($file === "." || $file === ".." || !preg_match('/\.mp3$/i', $file)) {
@@ -294,27 +296,33 @@ function scan_songs(): array {
 
             $song_item = [];
 
-            // Check ID3v2 tags first, then ID3v1
-            $song_item['artist'] = clean_titles(
-                $id3_info['id3v2']['comments']['artist'][0] ??
-                $id3_info['id3v1']['artist'] ??
-                ''
-            );
-
-            $song_item['title'] = clean_titles(
-                $id3_info['id3v2']['comments']['title'][0] ??
-                $id3_info['id3v1']['title'] ??
-                ''
-            );
-
-            // If missing tags, use filename
-            if (empty($song_item['artist']) && empty($song_item['title'])) {
-                $song_item['artist'] = "";
+            if ($use_filename) {
+                // Use filename as title, ignore ID3 tags
+                $song_item['artist'] = '';
                 $song_item['title'] = preg_replace('/\.mp3$/i', '', $file);
-            } elseif (empty($song_item['artist'])) {
-                $song_item['artist'] = "Unknown artist";
-            } elseif (empty($song_item['title'])) {
-                $song_item['title'] = "Unknown track";
+            } else {
+                // Check ID3v2 tags first, then ID3v1
+                $song_item['artist'] = clean_titles(
+                    $id3_info['id3v2']['comments']['artist'][0] ??
+                    $id3_info['id3v1']['artist'] ??
+                    ''
+                );
+
+                $song_item['title'] = clean_titles(
+                    $id3_info['id3v2']['comments']['title'][0] ??
+                    $id3_info['id3v1']['title'] ??
+                    ''
+                );
+
+                // If missing tags, use filename
+                if (empty($song_item['artist']) && empty($song_item['title'])) {
+                    $song_item['artist'] = '';
+                    $song_item['title'] = preg_replace('/\.mp3$/i', '', $file);
+                } elseif (empty($song_item['artist'])) {
+                    $song_item['artist'] = 'Unknown artist';
+                } elseif (empty($song_item['title'])) {
+                    $song_item['title'] = 'Unknown track';
+                }
             }
 
             $song_item['filename'] = $id3_info['filename'] ?? $file;
