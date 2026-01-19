@@ -264,7 +264,42 @@ function write_songlist_struct(array $songlist_struct): bool {
         }
     }
 
-    return write_json_file('.opentape_songlist', $songlist_struct);
+    $result = write_json_file('.opentape_songlist', $songlist_struct);
+
+    // Also write human-readable text version
+    if ($result) {
+        write_songlist_txt($songlist_struct);
+    }
+
+    return $result;
+}
+
+/**
+ * Write human-readable text version of songlist
+ */
+function write_songlist_txt(array $songlist_struct): void {
+    $prefs = get_opentape_prefs();
+
+    $lines = [];
+    $lines[] = $prefs['banner'] ?? 'Untitled Mixtape';
+    $lines[] = $prefs['caption'] ?? '';
+    $lines[] = '';
+
+    foreach ($songlist_struct as $row) {
+        $artist = $row['opentape_artist'] ?? $row['artist'] ?? '';
+        $title = $row['opentape_title'] ?? $row['title'] ?? '';
+
+        if ($artist && $title) {
+            $lines[] = $artist . ' - ' . $title;
+        } elseif ($title) {
+            $lines[] = $title;
+        } elseif ($artist) {
+            $lines[] = $artist;
+        }
+    }
+
+    $txt_path = SETTINGS_PATH . 'songlist.txt';
+    @file_put_contents($txt_path, implode("\n", $lines) . "\n");
 }
 
 /**
