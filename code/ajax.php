@@ -59,6 +59,10 @@ switch ($command) {
         handle_set_option($args);
         break;
 
+    case 'check_updates':
+        handle_check_updates();
+        break;
+
     default:
         echo json_encode(['status' => false, 'command' => $command, 'error' => 'Unknown command']);
 }
@@ -242,4 +246,22 @@ function handle_set_option(array $args): void {
     } else {
         echo json_encode(['status' => false, 'command' => 'set_option', 'error' => 'Failed to save preferences']);
     }
+}
+
+/**
+ * Handle update check
+ */
+function handle_check_updates(): void {
+    $update_info = check_for_updates();
+
+    if ($update_info === null) {
+        echo json_encode(['status' => false, 'command' => 'check_updates', 'error' => 'Could not check for updates']);
+        return;
+    }
+
+    echo json_encode([
+        'status' => true,
+        'command' => 'check_updates',
+        'update_info' => $update_info
+    ]);
 }

@@ -61,6 +61,15 @@ $csrf_token = get_csrf_token();
                 </form>
             </div>
 
+            <div class="section">
+                <h2>Updates</h2>
+                <div id="update_check">
+                    <p>Current version: <strong><?php echo htmlspecialchars(VERSION, ENT_QUOTES, 'UTF-8'); ?></strong></p>
+                    <input type="button" class="small_button" id="check_updates_button" value="Check for Updates">
+                </div>
+                <div id="update_result" style="display:none; margin-top: 15px;"></div>
+            </div>
+
             <div class="footer">
                 <?php get_version_banner(); ?>
             </div>
@@ -74,6 +83,7 @@ $csrf_token = get_csrf_token();
 
         const CSRF_TOKEN = <?php echo json_encode($csrf_token); ?>;
         const AJAX_URL = <?php echo json_encode($REL_PATH . 'code/ajax.php'); ?>;
+        const GITHUB_REPO = <?php echo json_encode(GITHUB_REPO); ?>;
         const fader = new StatusFader();
 
         // AJAX helper
@@ -137,6 +147,74 @@ $csrf_token = get_csrf_token();
             displayMp3.addEventListener('change', function() {
                 ajaxPost('set_option', { display_mp3: this.checked });
             });
+        }
+
+        // Update checker
+        const checkUpdatesButton = document.getElementById('check_updates_button');
+        const updateResult = document.getElementById('update_result');
+
+        if (checkUpdatesButton && updateResult) {
+            checkUpdatesButton.addEventListener('click', function() {
+                checkUpdatesButton.disabled = true;
+                checkUpdatesButton.value = 'Checking...';
+                updateResult.style.display = 'none';
+
+                ajaxPost('check_updates', {})
+                    .then(data => {
+                        checkUpdatesButton.disabled = false;
+                        checkUpdatesButton.value = 'Check for Updates';
+                        updateResult.style.display = 'block';
+
+                        if (!data.status) {
+                            updateResult.innerHTML = '<p style="color:#c00;">Could not check for updates. Please try again later.</p>';
+                            return;
+                        }
+
+                        const info = data.update_info;
+
+                        if (info.update_available) {
+                            const releaseDate = info.published_at ? new Date(info.published_at).toLocaleDateString() : '';
+                            updateResult.innerHTML = `
+                                <div style="background:#ffe; border:1px solid #cc0; padding:15px; border-radius:4px;">
+                                    <p><strong style="color:#060;">Update available!</strong></p>
+                                    <p>New version: <strong>${escapeHtml(info.latest_version)}</strong> ${releaseDate ? '(released ' + releaseDate + ')' : ''}</p>
+                                    ${info.release_notes ? '<div style="background:#fff; padding:10px; margin:10px 0; border:1px solid #ddd; max-height:150px; overflow-y:auto; font-size:13px;"><strong>Release notes:</strong><br>' + escapeHtml(info.release_notes).replace(/\\n/g, '<br>') + '</div>' : ''}
+                                    <p><a href="${escapeHtml(info.release_url)}" target="_blank" style="color:#00f;">View release on GitHub</a></p>
+                                    <hr style="margin:15px 0; border:none; border-top:1px solid #ddd;">
+                                    <p><strong>How to update:</strong></p>
+                                    <ol style="margin:10px 0; padding-left:20px; line-height:1.6;">
+                                        <li><strong>Backup first:</strong> Your songs and settings are safe in the <code>songs/</code> and <code>settings/</code> folders, but it's always good to have a backup.</li>
+                                        <li><a href="${escapeHtml(info.download_url)}" target="_blank">Download the new version</a> (ZIP file)</li>
+                                        <li>Extract the ZIP file on your computer</li>
+                                        <li>Upload all files <strong>except</strong> the <code>songs/</code> and <code>settings/</code> folders to your server, overwriting existing files</li>
+                                        <li>Refresh this page to verify the update</li>
+                                    </ol>
+                                    <p style="font-size:12px; color:#666; margin-top:10px;"><strong>Note:</strong> Your music files and settings are stored separately and will not be affected by the update.</p>
+                                </div>
+                            `;
+                        } else {
+                            updateResult.innerHTML = `
+                                <div style="background:#efe; border:1px solid #0a0; padding:15px; border-radius:4px;">
+                                    <p><strong style="color:#060;">You're up to date!</strong></p>
+                                    <p>You are running the latest version (${escapeHtml(info.current_version)}).</p>
+                                </div>
+                            `;
+                        }
+                    })
+                    .catch(err => {
+                        checkUpdatesButton.disabled = false;
+                        checkUpdatesButton.value = 'Check for Updates';
+                        updateResult.style.display = 'block';
+                        updateResult.innerHTML = '<p style="color:#c00;">Could not check for updates. Please try again later.</p>';
+                    });
+            });
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     })();
     </script>

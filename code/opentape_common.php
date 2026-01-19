@@ -5,10 +5,12 @@
  */
 
 // --- CONFIGURABLE ADVANCED SETTINGS
-define("SETTINGS_PATH", "settings/");
-define("SONGS_PATH", "songs/");
+define("SETTINGS_PATH", "userdata/settings/");
+define("SONGS_PATH", "userdata/songs/");
 define("DEFAULT_COLOR", "EC660F");
-define("VERSION", "1.0.0");
+define("VERSION", "1.1.0");
+define("GITHUB_REPO", "mbinde/opentape");
+define("GITHUB_API_URL", "https://api.github.com/repos/" . GITHUB_REPO . "/releases/latest");
 // --- END OF CONFIGURABLE ADVANCED SETTINGS ---- //
 
 // Calculate relative path from current URL
@@ -550,6 +552,49 @@ function send_security_headers(): void {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: SAMEORIGIN');
     header('Referrer-Policy: strict-origin-when-cross-origin');
-    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self'; script-src 'self'; frame-ancestors 'self'");
+    header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; media-src 'self'; img-src 'self' https://api.github.com; script-src 'self'; frame-ancestors 'self'; connect-src 'self' https://api.github.com");
+}
+
+// ============================================================================
+// UPDATE CHECKER
+// ============================================================================
+
+/**
+ * Check for updates from GitHub releases
+ * Returns array with update info or null on error
+ */
+function check_for_updates(): ?array {
+    $ctx = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => "User-Agent: Opentape/" . VERSION . "\r\n",
+            'timeout' => 10
+        ]
+    ]);
+
+    $response = @file_get_contents(GITHUB_API_URL, false, $ctx);
+    if ($response === false) {
+        return null;
+    }
+
+    $release = json_decode($response, true);
+    if (!is_array($release) || empty($release['tag_name'])) {
+        return null;
+    }
+
+    // Parse version (remove 'v' prefix if present)
+    $latest_version = ltrim($release['tag_name'], 'v');
+    $current_version = VERSION;
+
+    return [
+        'current_version' => $current_version,
+        'latest_version' => $latest_version,
+        'update_available' => version_compare($latest_version, $current_version, '>'),
+        'release_name' => $release['name'] ?? $release['tag_name'],
+        'release_notes' => $release['body'] ?? '',
+        'release_url' => $release['html_url'] ?? ('https://github.com/' . GITHUB_REPO . '/releases'),
+        'download_url' => $release['zipball_url'] ?? '',
+        'published_at' => $release['published_at'] ?? ''
+    ];
 }
 
