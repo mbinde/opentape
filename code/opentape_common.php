@@ -346,6 +346,96 @@ function scan_songs(): array {
 }
 
 /**
+ * Rescan all songs, preserving manual edits (opentape_artist/opentape_title)
+ */
+function rescan_songs(): array {
+    require_once('getid3/getid3.php');
+
+    $dir_handle = opendir(SONGS_PATH);
+    if (!$dir_handle) {
+        return [];
+    }
+
+    // Get existing songlist to preserve manual edits
+    $old_songlist = get_songlist_struct();
+
+    $getID3 = new getID3();
+    $songlist_new = [];
+    $prefs = get_opentape_prefs();
+    $use_filename = !empty($prefs['use_filename']);
+
+    while (false !== ($file = readdir($dir_handle))) {
+        if ($file === "." || $file === ".." || !preg_match('/\.mp3$/i', $file)) {
+            continue;
+        }
+
+        $key = base64_encode(rawurlencode($file));
+        $id3_info = $getID3->analyze(SONGS_PATH . $file);
+
+        $song_item = [];
+
+        if ($use_filename) {
+            $song_item['artist'] = '';
+            $song_item['title'] = preg_replace('/\.mp3$/i', '', $file);
+        } else {
+            $song_item['artist'] = clean_titles(
+                $id3_info['id3v2']['comments']['artist'][0] ??
+                $id3_info['id3v1']['artist'] ??
+                ''
+            );
+            $song_item['title'] = clean_titles(
+                $id3_info['id3v2']['comments']['title'][0] ??
+                $id3_info['id3v1']['title'] ??
+                ''
+            );
+
+            if (empty($song_item['artist']) && empty($song_item['title'])) {
+                $song_item['artist'] = '';
+                $song_item['title'] = preg_replace('/\.mp3$/i', '', $file);
+            } elseif (empty($song_item['artist'])) {
+                $song_item['artist'] = 'Unknown artist';
+            } elseif (empty($song_item['title'])) {
+                $song_item['title'] = 'Unknown track';
+            }
+        }
+
+        $song_item['filename'] = $id3_info['filename'] ?? $file;
+        $song_item['playtime_seconds'] = $id3_info['playtime_seconds'] ?? 0;
+        $song_item['playtime_string'] = $id3_info['playtime_string'] ?? '0:00';
+        $song_item['mtime'] = filemtime(SONGS_PATH . $file);
+        $song_item['size'] = filesize(SONGS_PATH . $file);
+
+        // Preserve manual edits from old songlist
+        if (isset($old_songlist[$key])) {
+            if (!empty($old_songlist[$key]['opentape_artist'])) {
+                $song_item['opentape_artist'] = $old_songlist[$key]['opentape_artist'];
+            }
+            if (!empty($old_songlist[$key]['opentape_title'])) {
+                $song_item['opentape_title'] = $old_songlist[$key]['opentape_title'];
+            }
+        }
+
+        $songlist_new[$key] = $song_item;
+    }
+
+    closedir($dir_handle);
+
+    // Preserve order from old songlist where possible
+    $songlist_ordered = [];
+    foreach ($old_songlist as $key => $value) {
+        if (isset($songlist_new[$key])) {
+            $songlist_ordered[$key] = $songlist_new[$key];
+            unset($songlist_new[$key]);
+        }
+    }
+    // Add any new songs at the end
+    $songlist_ordered = array_merge($songlist_ordered, $songlist_new);
+
+    write_songlist_struct($songlist_ordered);
+    return $songlist_ordered;
+}
+
+/**
  * Rename a song's display artist/title
  */
 function rename_song(string $song_key, string $artist, string $title): bool {

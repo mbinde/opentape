@@ -297,9 +297,6 @@ function handle_check_updates(): void {
  * Handle rescan songs request
  */
 function handle_rescan_songs(): void {
-    // Clear existing songlist to force full rescan
-    write_songlist_struct([]);
-
-    // Rescan will happen automatically on next page load via scan_songs()
+    rescan_songs();
     echo json_encode(['status' => true, 'command' => 'rescan_songs']);
 }
